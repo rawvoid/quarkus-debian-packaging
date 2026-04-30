@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+MAIN_JAR="[[deb.main.jar]]"
+
+if [ -n "${JAVA_HOME:-}" ]; then
+    PATH="${JAVA_HOME}/bin:${PATH}"
+    export PATH
+fi
+
+JAVA="$(command -v java || true)"
+
+if [ -z "${JAVA}" ] || [ ! -x "${JAVA}" ]; then
+    echo "Error: Java execution environment not found." >&2
+    echo "Please ensure 'java' is in your PATH or JAVA_HOME is correctly set." >&2
+    exit 1
+fi
+
+if [ -n "${JAVA_OPTS:-}" ]; then
+    if [ -n "${JDK_JAVA_OPTIONS:-}" ]; then
+        JDK_JAVA_OPTIONS="${JAVA_OPTS} ${JDK_JAVA_OPTIONS}"
+    else
+        JDK_JAVA_OPTIONS="${JAVA_OPTS}"
+    fi
+    export JDK_JAVA_OPTIONS
+fi
+
+exec "${JAVA}" -jar "${MAIN_JAR}"

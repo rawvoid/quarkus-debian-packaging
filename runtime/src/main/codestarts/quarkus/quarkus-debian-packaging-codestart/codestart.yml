@@ -2,8 +2,14 @@ name: quarkus-debian-packaging-codestart
 ref: quarkus-debian-packaging
 type: code
 tags: extension-codestart
+output-strategy:
+  "pom.xml": smart-pom-merge
+  "src/deb/control/postinst": executable
+  "src/deb/control/postrm": executable
+  "src/deb/control/prerm": executable
+  "src/deb/data/usr/bin/*": executable
 metadata:
   title: Quarkus Debian Packaging
-  description: Start coding with Quarkus Debian Packaging
+  description: Start with Debian packaging configuration for a Quarkus application.
 #  path: /some-path
 #  related-guide-section: TBD

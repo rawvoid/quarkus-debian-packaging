@@ -1,0 +1,7 @@
+# Runtime options consumed by systemd EnvironmentFile= for [[deb.systemd.service.name]].
+
+# JAVA_HOME selects a specific JDK/JRE. Example: JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+# JAVA_HOME=
+# JVM options passed to the Java launcher through JDK_JAVA_OPTIONS.
+JAVA_OPTS=-XX:+PrintCommandLineFlags -XX:+ExitOnOutOfMemoryError
+QUARKUS_CONFIG_LOCATIONS=file:[[deb.config.file]]
