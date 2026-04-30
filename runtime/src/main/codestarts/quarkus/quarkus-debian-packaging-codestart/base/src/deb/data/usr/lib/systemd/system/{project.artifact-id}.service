@@ -9,6 +9,9 @@ User=[[deb.service.user]]
 Group=[[deb.service.user.group]]
 
 WorkingDirectory=-[[deb.install.dir]]
+RuntimeDirectory=[[deb.service.user]]
+StateDirectory=[[deb.service.user]]
+LogsDirectory=[[deb.service.user]]
 EnvironmentFile=-[[deb.defaults.file]]
 ExecStart=[[deb.bin.file]]
 SuccessExitStatus=143
