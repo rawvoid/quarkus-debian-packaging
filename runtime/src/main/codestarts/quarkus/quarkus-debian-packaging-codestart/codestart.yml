@@ -1,0 +1,9 @@
+name: quarkus-debian-packaging-codestart
+ref: quarkus-debian-packaging
+type: code
+tags: extension-codestart
+metadata:
+  title: Quarkus Debian Packaging
+  description: Start coding with Quarkus Debian Packaging
+#  path: /some-path
+#  related-guide-section: TBD
