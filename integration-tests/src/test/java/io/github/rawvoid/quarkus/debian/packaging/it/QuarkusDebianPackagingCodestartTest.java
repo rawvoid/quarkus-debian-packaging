@@ -63,14 +63,18 @@ public class QuarkusDebianPackagingCodestartTest {
 
         Path defaults = singleFile(projectDir.resolve("src/deb/data/etc/default"));
         assertFileContains(defaults,
-                "JAVA_OPTS=-XX:+PrintCommandLineFlags -XX:+ExitOnOutOfMemoryError",
                 "QUARKUS_CONFIG_LOCATIONS=file:[[deb.config.file]]");
 
-        Path externalConfig = singleFile(projectDir.resolve("src/deb/data/etc")
-                .resolve(defaults.getFileName().toString()));
+        Path etcDir = projectDir.resolve("src/deb/data/etc").resolve(defaults.getFileName().toString());
+        Path externalConfig = etcDir.resolve("application.properties");
         assertFileContains(externalConfig,
                 "quarkus.http.port=8080",
                 "quarkus.log.level=INFO");
+
+        Path jvmOptions = etcDir.resolve("jvm.options");
+        assertFileContains(jvmOptions,
+                "-XX:+PrintCommandLineFlags",
+                "-XX:+ExitOnOutOfMemoryError");
 
         assertDebFilesDoNotContain(projectDir, "fare-ingress");
     }

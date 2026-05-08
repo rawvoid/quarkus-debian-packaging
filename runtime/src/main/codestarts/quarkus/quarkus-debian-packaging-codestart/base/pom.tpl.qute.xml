@@ -11,6 +11,7 @@
         <deb.data.dir>/var/lib/$\{deb.package.name}</deb.data.dir>
         <deb.log.dir>/var/log/$\{deb.package.name}</deb.log.dir>
         <deb.config.file>$\{deb.config.dir}/application.properties</deb.config.file>
+        <deb.jvm.options.file>$\{deb.config.dir}/jvm.options</deb.jvm.options.file>
         <deb.defaults.file>/etc/default/$\{deb.package.name}</deb.defaults.file>
         <deb.bin.file>/usr/bin/$\{deb.package.name}</deb.bin.file>
         <deb.main.jar>$\{deb.install.dir}/quarkus-run.jar</deb.main.jar>
@@ -97,19 +98,9 @@
                                     </mapper>
                                 </data>
                                 <data>
-                                    <src>$\{project.build.directory}/deb/data/etc/default/$\{deb.package.name}</src>
-                                    <type>file</type>
-                                    <dst>$\{deb.defaults.file}</dst>
-                                    <conffile>true</conffile>
-                                    <mapper>
-                                        <type>perm</type>
-                                        <filemode>0644</filemode>
-                                    </mapper>
-                                </data>
-                                <data>
-                                    <src>$\{project.build.directory}/deb/data/etc/$\{deb.package.name}/application.properties</src>
-                                    <type>file</type>
-                                    <dst>$\{deb.config.file}</dst>
+                                    <src>$\{project.build.directory}/deb/data/etc</src>
+                                    <type>directory</type>
+                                    <dst>$\{deb.config.dir}</dst>
                                     <conffile>true</conffile>
                                     <mapper>
                                         <type>perm</type>

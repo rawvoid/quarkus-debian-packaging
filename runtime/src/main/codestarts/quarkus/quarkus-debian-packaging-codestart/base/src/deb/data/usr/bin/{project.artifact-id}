@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+JVM_OPTIONS_FILE="[[deb.jvm.options.file]]"
 MAIN_JAR="[[deb.main.jar]]"
 
 if [ -n "${JAVA_HOME:-}" ]; then
@@ -16,13 +17,19 @@ if [ -z "${JAVA}" ] || [ ! -x "${JAVA}" ]; then
     exit 1
 fi
 
-if [ -n "${JAVA_OPTS:-}" ]; then
-    if [ -n "${JDK_JAVA_OPTIONS:-}" ]; then
-        JDK_JAVA_OPTIONS="${JAVA_OPTS} ${JDK_JAVA_OPTIONS}"
-    else
-        JDK_JAVA_OPTIONS="${JAVA_OPTS}"
+if [ -f "${JVM_OPTIONS_FILE}" ]; then
+    JVM_OPTS=""
+    while read -r line || [ -n "$line" ]; do
+        case "$line" in
+            \#*|"") continue ;;
+            *) JVM_OPTS="${JVM_OPTS:+${JVM_OPTS} }${line}" ;;
+        esac
+    done < "${JVM_OPTIONS_FILE}"
+    
+    if [ -n "${JVM_OPTS}" ]; then
+        JDK_JAVA_OPTIONS="${JVM_OPTS}"
+        export JDK_JAVA_OPTIONS
     fi
-    export JDK_JAVA_OPTIONS
 fi
 
 exec "${JAVA}" -jar "${MAIN_JAR}"
