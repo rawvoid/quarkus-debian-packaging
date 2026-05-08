@@ -27,8 +27,7 @@ if [ -f "${JVM_OPTIONS_FILE}" ]; then
     done < "${JVM_OPTIONS_FILE}"
     
     if [ -n "${JVM_OPTS}" ]; then
-        JDK_JAVA_OPTIONS="${JVM_OPTS}"
-        export JDK_JAVA_OPTIONS
+        export JDK_JAVA_OPTIONS="${JVM_OPTS}"
     fi
 fi
 
