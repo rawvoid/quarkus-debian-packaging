@@ -100,10 +100,10 @@
                                 <data>
                                     <src>$\{project.build.directory}/deb/data/etc</src>
                                     <type>directory</type>
-                                    <dst>$\{deb.config.dir}</dst>
                                     <conffile>true</conffile>
                                     <mapper>
                                         <type>perm</type>
+                                        <prefix>/etc</prefix>
                                         <filemode>0644</filemode>
                                     </mapper>
                                 </data>
