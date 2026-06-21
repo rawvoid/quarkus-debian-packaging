@@ -80,7 +80,7 @@
                                     </mapper>
                                 </data>
                                 <data>
-                                    <src>$\{project.build.directory}/deb/data/usr/bin/$\{deb.package.name}</src>
+                                    <src>$\{project.build.directory}/deb/data/$\{deb.bin.file}</src>
                                     <type>file</type>
                                     <dst>$\{deb.bin.file}</dst>
                                     <mapper>
@@ -89,7 +89,7 @@
                                     </mapper>
                                 </data>
                                 <data>
-                                    <src>$\{project.build.directory}/deb/data/usr/lib/systemd/system/$\{deb.package.name}.service</src>
+                                    <src>$\{project.build.directory}/deb/data/$\{deb.systemd.unit.file}</src>
                                     <type>file</type>
                                     <dst>$\{deb.systemd.unit.file}</dst>
                                     <mapper>
@@ -98,13 +98,24 @@
                                     </mapper>
                                 </data>
                                 <data>
-                                    <src>$\{project.build.directory}/deb/data/etc</src>
+                                    <src>$\{project.build.directory}/deb/data/$\{deb.defaults.file}</src>
+                                    <type>file</type>
+                                    <dst>$\{deb.defaults.file}</dst>
+                                    <conffile>true</conffile>
+                                    <mapper>
+                                        <type>perm</type>
+                                        <filemode>0644</filemode>
+                                    </mapper>
+                                </data>
+                                <data>
+                                    <src>${project.build.directory}/deb/data/${deb.config.dir}</src>
                                     <type>directory</type>
                                     <conffile>true</conffile>
                                     <mapper>
                                         <type>perm</type>
-                                        <prefix>/etc</prefix>
+                                        <prefix>${deb.config.dir}</prefix>
                                         <filemode>0644</filemode>
+                                        <dirmode>0755</dirmode>
                                     </mapper>
                                 </data>
                             </dataSet>
