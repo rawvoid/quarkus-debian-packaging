@@ -108,12 +108,12 @@
                                     </mapper>
                                 </data>
                                 <data>
-                                    <src>${project.build.directory}/deb/data/${deb.config.dir}</src>
+                                    <src>$\{project.build.directory}/deb/data/$\{deb.config.dir}</src>
                                     <type>directory</type>
                                     <conffile>true</conffile>
                                     <mapper>
                                         <type>perm</type>
-                                        <prefix>${deb.config.dir}</prefix>
+                                        <prefix>$\{deb.config.dir}</prefix>
                                         <filemode>0644</filemode>
                                         <dirmode>0755</dirmode>
                                     </mapper>
