@@ -26,9 +26,9 @@ public final class DebPackager {
 
     public static Path packageDeb(DebianPackageModel model) {
         try {
+            // Data templates do not use installedSize; build the tree once.
             List<DebEntry> dataEntries = buildDataEntries(model);
-            long installedBytes = estimateInstalledBytes(dataEntries);
-            long installedSizeKiB = DebBuilder.installedSizeKiB(installedBytes);
+            long installedSizeKiB = DebBuilder.installedSizeKiB(estimateInstalledBytes(dataEntries));
 
             Map<String, String> vars = model.templateVariables();
             vars.put("installedSize", Long.toString(installedSizeKiB));
@@ -38,9 +38,6 @@ public final class DebPackager {
                     DebEntry.bytes("postinst", TemplateRenderer.renderBytes("postinst", vars), DebEntry.MODE_EXEC, false),
                     DebEntry.bytes("prerm", TemplateRenderer.renderBytes("prerm", vars), DebEntry.MODE_EXEC, false),
                     DebEntry.bytes("postrm", TemplateRenderer.renderBytes("postrm", vars), DebEntry.MODE_EXEC, false));
-
-            // Rebuild data entries so generated files use the same variable map (installedSize not needed there)
-            dataEntries = buildDataEntries(model);
 
             Path output = model.outputFile();
             DebBuilder.build(output, control, controlEntries, dataEntries);
