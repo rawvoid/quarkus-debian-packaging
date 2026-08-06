@@ -1,16 +1,14 @@
 name: Quarkus Debian Packaging
-description: Generate Debian packaging files for Quarkus applications.
+description: >
+  Build a Debian package (.deb) for Quarkus applications during package phase.
+  Add this extension and run `mvn package` — no jdeb/pom plugins required.
+  Payload follows quarkus.package.jar.type / native packaging automatically.
 metadata:
   keywords:
     - debian
     - packaging
-    - jdeb
-#  guide: ... # To create and publish this guide, see https://github.com/quarkiverse/quarkiverse/wiki#documenting-your-extension
+    - deb
+    - systemd
   categories:
     - "miscellaneous"
   status: "preview"
-  codestart:
-    name: quarkus-debian-packaging
-    languages:
-      - "java"
-    artifact: "io.github.rawvoid:quarkus-debian-packaging:codestarts:jar:${project.version}"

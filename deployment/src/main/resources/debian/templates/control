@@ -1,0 +1,9 @@
+Package: ${packageName}
+Version: ${version}
+Section: ${section}
+Priority: ${priority}
+Architecture: ${architecture}
+Depends: ${depends}
+Installed-Size: ${installedSize}
+Maintainer: ${maintainer}
+Description: ${description}

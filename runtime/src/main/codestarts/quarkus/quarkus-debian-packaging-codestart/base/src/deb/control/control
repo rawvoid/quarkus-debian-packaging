@@ -1,8 +1,0 @@
-Package: [[deb.package.name]]
-Version: [[project.version]]
-Section: web
-Priority: optional
-Architecture: [[deb.architecture]]
-Depends: systemd
-Maintainer: [[deb.maintainer]]
-Description: [[deb.description]]

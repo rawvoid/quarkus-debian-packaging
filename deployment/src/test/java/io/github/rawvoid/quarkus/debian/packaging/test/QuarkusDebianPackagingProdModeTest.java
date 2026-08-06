@@ -1,0 +1,121 @@
+package io.github.rawvoid.quarkus.debian.packaging.test;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
+
+import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
+import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import io.quarkus.test.ProdBuildResults;
+import io.quarkus.test.ProdModeTestResults;
+import io.quarkus.test.QuarkusProdModeTest;
+
+public class QuarkusDebianPackagingProdModeTest {
+
+    @RegisterExtension
+    static final QuarkusProdModeTest config = new QuarkusProdModeTest()
+            .setArchiveProducer(() -> ShrinkWrap.create(JavaArchive.class)
+                    .addAsResource("application.properties"))
+            .setApplicationName("prod-deb-app")
+            .setApplicationVersion("1.0.0")
+            .overrideConfigKey("quarkus.debian.maintainer", "CI <ci@example.com>");
+
+    @ProdBuildResults
+    private ProdModeTestResults prodModeTestResults;
+
+    @Test
+    public void producesDebPackage() throws Exception {
+        Path buildDir = prodModeTestResults.getBuildDir();
+        Path deb = findDeb(buildDir);
+        assertTrue(Files.isRegularFile(deb), () -> "Expected .deb under " + buildDir);
+
+        Map<String, byte[]> ar = readAr(deb);
+        Map<String, String> control = readTarGzAsStrings(ar.get("control.tar.gz"));
+        Map<String, String> data = readTarGzAsStrings(ar.get("data.tar.gz"));
+
+        assertTrue(control.get("control").contains("Package: prod-deb-app"));
+        assertTrue(control.get("control").contains("Maintainer: CI <ci@example.com>"));
+        assertTrue(control.get("control").contains("Architecture: all"));
+        assertTrue(control.containsKey("postinst"));
+        assertTrue(control.containsKey("conffiles"));
+        assertTrue(control.get("conffiles").contains("/etc/default/prod-deb-app"));
+        assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/application.properties"));
+        assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/jvm.options"));
+
+        assertTrue(data.keySet().stream().anyMatch(p -> p.endsWith("quarkus-run.jar")));
+        assertTrue(data.containsKey("usr/bin/prod-deb-app"));
+        assertTrue(data.containsKey("usr/lib/systemd/system/prod-deb-app.service"));
+        assertTrue(data.containsKey("etc/default/prod-deb-app"));
+        String launcher = data.get("usr/bin/prod-deb-app");
+        assertTrue(launcher.contains("exec \"${JAVA}\" -jar"));
+        assertTrue(launcher.contains("/usr/share/prod-deb-app/quarkus-run.jar"));
+        assertFalse(launcher.contains("${mainExecutable}"), "Launcher template variables must be resolved");
+        assertFalse(launcher.contains("${jvmOptionsFile}"), "Launcher template variables must be resolved");
+        assertTrue(data.get("etc/default/prod-deb-app")
+                .contains("QUARKUS_CONFIG_LOCATIONS=file:/etc/prod-deb-app/application.properties"));
+        assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecStart=/usr/bin/prod-deb-app"));
+    }
+
+    private static Path findDeb(Path buildDir) throws IOException {
+        try (Stream<Path> paths = Files.walk(buildDir)) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".deb"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("No .deb under " + buildDir));
+        }
+    }
+
+    private static Map<String, byte[]> readAr(Path deb) throws IOException {
+        Map<String, byte[]> members = new HashMap<>();
+        try (InputStream in = Files.newInputStream(deb);
+                ArArchiveInputStream ar = new ArArchiveInputStream(in)) {
+            ArArchiveEntry entry;
+            while ((entry = ar.getNextEntry()) != null) {
+                members.put(entry.getName(), ar.readAllBytes());
+            }
+        }
+        return members;
+    }
+
+    private static Map<String, String> readTarGzAsStrings(byte[] tarGz) throws IOException {
+        Map<String, String> members = new HashMap<>();
+        try (InputStream in = new GZIPInputStream(new ByteArrayInputStream(tarGz));
+                TarArchiveInputStream tar = new TarArchiveInputStream(in)) {
+            TarArchiveEntry entry;
+            while ((entry = tar.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                String name = entry.getName();
+                if (name.startsWith("./")) {
+                    name = name.substring(2);
+                }
+                byte[] bytes = tar.readAllBytes();
+                if (name.endsWith(".jar") || name.endsWith(".dat")) {
+                    members.put(name, "");
+                } else {
+                    members.put(name, new String(bytes, StandardCharsets.UTF_8));
+                }
+            }
+        }
+        return members;
+    }
+}

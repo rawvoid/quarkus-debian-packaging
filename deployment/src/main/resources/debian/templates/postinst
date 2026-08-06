@@ -1,0 +1,73 @@
+#!/bin/sh
+set -e
+
+PACKAGE_NAME="${packageName}"
+SERVICE_NAME="${systemdServiceName}"
+SERVICE_USER="${serviceUser}"
+SERVICE_GROUP="${serviceGroup}"
+INSTALL_DIR="${installDir}"
+CONFIG_DIR="${configDir}"
+DATA_DIR="${dataDir}"
+LOG_DIR="${logDir}"
+
+UPGRADE_RESTART_MARKER="/run/${PACKAGE_NAME}.upgrade-restart"
+
+create_service_account() {
+    if ! getent group "${SERVICE_GROUP}" >/dev/null; then
+        groupadd --system "${SERVICE_GROUP}"
+    fi
+
+    if ! getent passwd "${SERVICE_USER}" >/dev/null; then
+        useradd \
+            --system \
+            --gid "${SERVICE_GROUP}" \
+            --home-dir "${DATA_DIR}" \
+            --no-create-home \
+            --shell /usr/sbin/nologin \
+            --comment "${PACKAGE_NAME} service account" \
+            "${SERVICE_USER}"
+    fi
+}
+
+create_directories() {
+    [ -d "${INSTALL_DIR}" ] || install -d -o root -g "${SERVICE_GROUP}" -m 0750 "${INSTALL_DIR}"
+    [ -d "${CONFIG_DIR}" ] || install -d -o root -g "${SERVICE_GROUP}" -m 0750 "${CONFIG_DIR}"
+    [ -d "${DATA_DIR}" ] || install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${DATA_DIR}"
+    [ -d "${LOG_DIR}" ] || install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${LOG_DIR}"
+}
+
+clear_upgrade_restart_marker() {
+    rm -f "${UPGRADE_RESTART_MARKER}"
+}
+
+restart_service_if_marked() {
+    if [ ! -f "${UPGRADE_RESTART_MARKER}" ]; then
+        return 0
+    fi
+
+    clear_upgrade_restart_marker
+    systemctl --system start "${SERVICE_NAME}" >/dev/null || true
+}
+
+case "$1" in
+    configure|abort-upgrade|abort-deconfigure|abort-remove)
+        create_service_account
+        create_directories
+
+        if [ -d /run/systemd/system ]; then
+            systemctl --system daemon-reload >/dev/null || true
+            case "$1" in
+                configure)
+                    if [ -n "$2" ]; then
+                        restart_service_if_marked
+                    fi
+                ;;
+                abort-upgrade)
+                    restart_service_if_marked
+                ;;
+            esac
+        fi
+    ;;
+esac
+
+exit 0

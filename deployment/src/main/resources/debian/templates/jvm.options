@@ -1,0 +1,5 @@
+-XX:+PrintCommandLineFlags
+-XX:+ExitOnOutOfMemoryError
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=${logDir}
+-Xlog:gc*:file=${logDir}/gc.log:time,uptime,level,tags:filecount=10,filesize=20M

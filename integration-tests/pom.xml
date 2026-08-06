@@ -5,13 +5,14 @@
     <parent>
         <groupId>io.github.rawvoid</groupId>
         <artifactId>quarkus-debian-packaging-parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>2.0.0-SNAPSHOT</version>
     </parent>
     <artifactId>quarkus-debian-packaging-integration-tests</artifactId>
     <name>Quarkus Debian Packaging - Integration Tests</name>
 
     <properties>
-        <skipITs>true</skipITs>
+        <!-- Deb layout IT runs after package; QuarkusIntegrationTest remains native-profile only. -->
+        <skipITs>false</skipITs>
     </properties>
 
     <dependencies>
@@ -35,8 +36,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-devtools-testing</artifactId>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -66,6 +67,10 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <!-- ResourceIT needs a launchable jar/native image and is enabled under the native profile. -->
+                    <excludes>
+                        <exclude>**/QuarkusDebianPackagingResourceIT.java</exclude>
+                    </excludes>
                     <systemPropertyVariables>
                         <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
@@ -90,6 +95,12 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <skipTests>${native.surefire.skip}</skipTests>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override"/>
                         </configuration>
                     </plugin>
                 </plugins>

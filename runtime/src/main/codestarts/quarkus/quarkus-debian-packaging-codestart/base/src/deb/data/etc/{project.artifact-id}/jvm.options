@@ -1,5 +1,0 @@
--XX:+PrintCommandLineFlags
--XX:+ExitOnOutOfMemoryError
--XX:+HeapDumpOnOutOfMemoryError
--XX:HeapDumpPath=[[deb.log.dir]]
--Xlog:gc*:file=[[deb.log.dir]]/gc.log:time,uptime,level,tags:filecount=10,filesize=20M

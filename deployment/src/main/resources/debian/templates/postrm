@@ -1,0 +1,36 @@
+#!/bin/sh
+set -e
+
+SERVICE_USER="${serviceUser}"
+SERVICE_GROUP="${serviceGroup}"
+INSTALL_DIR="${installDir}"
+CONFIG_DIR="${configDir}"
+DATA_DIR="${dataDir}"
+LOG_DIR="${logDir}"
+
+remove_service_account() {
+    if getent passwd "${SERVICE_USER}" >/dev/null; then
+        userdel "${SERVICE_USER}" >/dev/null 2>&1 || true
+    fi
+
+    if getent group "${SERVICE_GROUP}" >/dev/null; then
+        groupdel "${SERVICE_GROUP}" >/dev/null 2>&1 || true
+    fi
+}
+
+remove_directories() {
+    rm -rf "${DATA_DIR}" "${LOG_DIR}" "${CONFIG_DIR}" "${INSTALL_DIR}" >/dev/null 2>&1 || true
+}
+
+case "$1" in
+    purge)
+        remove_directories
+        remove_service_account
+    ;;
+esac
+
+if [ "$1" = "remove" ] && [ -d /run/systemd/system ]; then
+    systemctl --system daemon-reload >/dev/null || true
+fi
+
+exit 0

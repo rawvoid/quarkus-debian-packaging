@@ -5,12 +5,17 @@
     <parent>
         <groupId>io.github.rawvoid</groupId>
         <artifactId>quarkus-debian-packaging-parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>2.0.0-SNAPSHOT</version>
     </parent>
     <artifactId>quarkus-debian-packaging</artifactId>
     <name>Quarkus Debian Packaging - Runtime</name>
 
     <dependencies>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-core</artifactId>
+        </dependency>
+        <!-- Required so unit/dev tests and standard CDI bootstrap work with the extension present. -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
@@ -48,26 +53,6 @@
                                 </path>
                             </annotationProcessorPaths>
                             <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-jar-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>generate-codestart-jar</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                        <configuration>
-                            <classesDirectory>${project.basedir}/src/main</classesDirectory>
-                            <includes>
-                                <include>codestarts/**</include>
-                            </includes>
-                            <classifier>codestarts</classifier>
-                            <skipIfEmpty>true</skipIfEmpty>
                         </configuration>
                     </execution>
                 </executions>
