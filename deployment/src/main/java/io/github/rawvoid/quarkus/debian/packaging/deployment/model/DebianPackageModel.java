@@ -16,7 +16,10 @@ import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
  */
 public final class DebianPackageModel {
 
-    private static final Pattern PACKAGE_NAME = Pattern.compile("^[a-z0-9][a-z0-9+.-]*$");
+    /**
+     * Debian Policy: package names must be at least two characters and match this pattern.
+     */
+    private static final Pattern PACKAGE_NAME = Pattern.compile("^[a-z0-9][a-z0-9+.-]+$");
 
     private final String packageName;
     private final String version;
@@ -105,7 +108,8 @@ public final class DebianPackageModel {
         if (!PACKAGE_NAME.matcher(packageName).matches()) {
             throw new IllegalArgumentException(
                     "Invalid Debian package name '" + packageName
-                            + "'. Names must match [a-z0-9][a-z0-9+.-]* (configure quarkus.debian.name).");
+                            + "'. Names must be at least two characters and match [a-z0-9][a-z0-9+.-]+ "
+                            + "(configure quarkus.debian.name).");
         }
 
         String version = config.version().orElse(appInfo.getVersion());
