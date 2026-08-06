@@ -47,6 +47,20 @@ class DebianPackageModelTest {
     }
 
     @Test
+    void stripsTrailingSlashesFromConfiguredPaths() {
+        DebianPackageModel model = resolve(configWithInstallDir("myapp", "/usr/share/myapp/"), payload());
+        assertEquals("/usr/share/myapp", model.installDir());
+        assertEquals("/usr/share/myapp/app-runner.jar", model.mainExecutable());
+    }
+
+    @Test
+    void rejectsRelativeConfiguredPaths() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> resolve(configWithInstallDir("myapp", "usr/share/myapp"), payload()));
+        assertTrue(error.getMessage().contains("absolute path"));
+    }
+
+    @Test
     void derivesUnixAccountFromPackageNameWithDotsAndPlus() {
         assertEquals("my-app-1", DebianPackageModel.deriveUnixAccountName("my.app+1"));
     }
@@ -98,21 +112,26 @@ class DebianPackageModelTest {
     }
 
     private static DebianPackagingConfig configWithName(String name) {
-        return config(name, Optional.empty(), Optional.empty());
+        return config(name, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private static DebianPackagingConfig configWithInstallDir(String name, String installDir) {
+        return config(name, Optional.empty(), Optional.empty(), Optional.of(installDir));
     }
 
     private static DebianPackagingConfig configWithNameAndUser(String name, String serviceUser) {
-        return config(name, Optional.of(serviceUser), Optional.empty());
+        return config(name, Optional.of(serviceUser), Optional.empty(), Optional.empty());
     }
 
     private static DebianPackagingConfig configWithAccounts(String name, String serviceUser, String serviceGroup) {
-        return config(name, Optional.of(serviceUser), Optional.of(serviceGroup));
+        return config(name, Optional.of(serviceUser), Optional.of(serviceGroup), Optional.empty());
     }
 
     private static DebianPackagingConfig config(
             String name,
             Optional<String> serviceUser,
-            Optional<String> serviceGroup) {
+            Optional<String> serviceGroup,
+            Optional<String> installDir) {
         return new DebianPackagingConfig() {
             @Override
             public boolean enabled() {
@@ -161,7 +180,7 @@ class DebianPackageModelTest {
 
             @Override
             public Optional<String> installDir() {
-                return Optional.empty();
+                return installDir;
             }
 
             @Override

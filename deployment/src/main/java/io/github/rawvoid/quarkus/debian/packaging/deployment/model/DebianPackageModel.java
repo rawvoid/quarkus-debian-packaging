@@ -128,14 +128,22 @@ public final class DebianPackageModel {
         String description = config.description().orElse(packageName + " service");
         String architecture = config.architecture().orElseGet(() -> payload.isNative() ? detectNativeArchitecture() : "all");
 
-        String installDir = config.installDir().orElse("/usr/share/" + packageName);
-        String configDir = config.configDir().orElse("/etc/" + packageName);
-        String dataDir = config.dataDir().orElse("/var/lib/" + packageName);
-        String logDir = config.logDir().orElse("/var/log/" + packageName);
-        String binFile = config.binPath().orElse("/usr/bin/" + packageName);
-        String defaultsFile = config.defaultsPath().orElse("/etc/default/" + packageName);
+        String installDir = normalizeAbsolutePath(
+                config.installDir().orElse("/usr/share/" + packageName), "quarkus.debian.install-dir");
+        String configDir = normalizeAbsolutePath(
+                config.configDir().orElse("/etc/" + packageName), "quarkus.debian.config-dir");
+        String dataDir = normalizeAbsolutePath(
+                config.dataDir().orElse("/var/lib/" + packageName), "quarkus.debian.data-dir");
+        String logDir = normalizeAbsolutePath(
+                config.logDir().orElse("/var/log/" + packageName), "quarkus.debian.log-dir");
+        String binFile = normalizeAbsolutePath(
+                config.binPath().orElse("/usr/bin/" + packageName), "quarkus.debian.bin-path");
+        String defaultsFile = normalizeAbsolutePath(
+                config.defaultsPath().orElse("/etc/default/" + packageName), "quarkus.debian.defaults-path");
         String systemdServiceName = packageName + ".service";
-        String systemdUnitFile = config.systemdUnitPath().orElse("/usr/lib/systemd/system/" + systemdServiceName);
+        String systemdUnitFile = normalizeAbsolutePath(
+                config.systemdUnitPath().orElse("/usr/lib/systemd/system/" + systemdServiceName),
+                "quarkus.debian.systemd-unit-path");
         String serviceUser = config.serviceUser()
                 .map(value -> validateUnixAccount(value, "quarkus.debian.service-user"))
                 .orElseGet(() -> deriveUnixAccountName(packageName));
@@ -248,6 +256,27 @@ public final class DebianPackageModel {
             normalized = normalized.replaceAll("-+$", "");
         }
         return validateUnixAccount(normalized, "derived service account from package name '" + packageName + "'");
+    }
+
+    /**
+     * Ensures configured install paths are absolute and free of trailing slashes.
+     */
+    static String normalizeAbsolutePath(String raw, String source) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Path is unset (" + source + ").");
+        }
+        String path = raw.trim().replace('\\', '/');
+        while (path.length() > 1 && path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        if (!path.startsWith("/")) {
+            throw new IllegalArgumentException(
+                    "Path '" + raw + "' (" + source + ") must be an absolute path starting with '/'.");
+        }
+        if (path.contains("//")) {
+            path = path.replaceAll("/{2,}", "/");
+        }
+        return path;
     }
 
     static String validateUnixAccount(String raw, String source) {
