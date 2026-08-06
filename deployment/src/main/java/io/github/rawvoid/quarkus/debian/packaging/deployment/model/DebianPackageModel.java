@@ -21,6 +21,13 @@ public final class DebianPackageModel {
      */
     private static final Pattern PACKAGE_NAME = Pattern.compile("^[a-z0-9][a-z0-9+.-]+$");
 
+    /**
+     * Conservative account name accepted by useradd/systemd ({@code User=}/{@code Group=}).
+     * Max length 32 matches historical glibc/util-linux limits.
+     */
+    private static final Pattern UNIX_ACCOUNT = Pattern.compile("^[a-z_][a-z0-9_-]{0,31}$");
+    private static final int MAX_UNIX_ACCOUNT_LENGTH = 32;
+
     private final String packageName;
     private final String version;
     private final String description;
@@ -129,8 +136,12 @@ public final class DebianPackageModel {
         String defaultsFile = config.defaultsPath().orElse("/etc/default/" + packageName);
         String systemdServiceName = packageName + ".service";
         String systemdUnitFile = config.systemdUnitPath().orElse("/usr/lib/systemd/system/" + systemdServiceName);
-        String serviceUser = config.serviceUser().orElse(packageName);
-        String serviceGroup = config.serviceGroup().orElse(packageName);
+        String serviceUser = config.serviceUser()
+                .map(value -> validateUnixAccount(value, "quarkus.debian.service-user"))
+                .orElseGet(() -> deriveUnixAccountName(packageName));
+        String serviceGroup = config.serviceGroup()
+                .map(value -> validateUnixAccount(value, "quarkus.debian.service-group"))
+                .orElse(serviceUser);
         String configFile = configDir + "/application.properties";
         String jvmOptionsFile = configDir + "/jvm.options";
         String mainExecutable = installDir + "/" + payload.mainRelativePath();
@@ -196,6 +207,48 @@ public final class DebianPackageModel {
                     "Debian package name is unset. Configure quarkus.application.name or quarkus.debian.name.");
         }
         return raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Derives a useradd/systemd-safe account name from a Debian package name.
+     * Replaces {@code .} / {@code +} with {@code -}, prefixes a leading digit with {@code _},
+     * collapses separators, and truncates to 32 characters.
+     */
+    static String deriveUnixAccountName(String packageName) {
+        String normalized = packageName.toLowerCase(Locale.ROOT)
+                .replace('+', '-')
+                .replace('.', '-');
+        normalized = normalized.replaceAll("[^a-z0-9_-]", "-");
+        normalized = normalized.replaceAll("-{2,}", "-");
+        normalized = normalized.replaceAll("^-+", "");
+        normalized = normalized.replaceAll("-+$", "");
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Cannot derive a Unix service account from package name '" + packageName
+                            + "'. Configure quarkus.debian.service-user and quarkus.debian.service-group.");
+        }
+        if (Character.isDigit(normalized.charAt(0))) {
+            normalized = "_" + normalized;
+        }
+        if (normalized.length() > MAX_UNIX_ACCOUNT_LENGTH) {
+            normalized = normalized.substring(0, MAX_UNIX_ACCOUNT_LENGTH);
+            normalized = normalized.replaceAll("-+$", "");
+        }
+        return validateUnixAccount(normalized, "derived service account from package name '" + packageName + "'");
+    }
+
+    static String validateUnixAccount(String raw, String source) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Unix account name is unset (" + source + ").");
+        }
+        String account = raw.trim().toLowerCase(Locale.ROOT);
+        if (!UNIX_ACCOUNT.matcher(account).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid Unix account name '" + account + "' (" + source + "). "
+                            + "Names must match [a-z_][a-z0-9_-]{0,31} (configure quarkus.debian.service-user / "
+                            + "quarkus.debian.service-group).");
+        }
+        return account;
     }
 
     private static String detectNativeArchitecture() {

@@ -33,6 +33,45 @@ class DebianPackageModelTest {
         assertEquals("ab", model.packageName());
     }
 
+    @Test
+    void derivesUnixAccountFromPackageNameWithDotsAndPlus() {
+        assertEquals("my-app-1", DebianPackageModel.deriveUnixAccountName("my.app+1"));
+    }
+
+    @Test
+    void prefixesLeadingDigitWhenDerivingUnixAccount() {
+        assertEquals("_1demo", DebianPackageModel.deriveUnixAccountName("1demo"));
+    }
+
+    @Test
+    void truncatesDerivedUnixAccountTo32Characters() {
+        String longName = "a".repeat(40);
+        String account = DebianPackageModel.deriveUnixAccountName(longName);
+        assertEquals(32, account.length());
+        assertEquals("a".repeat(32), account);
+    }
+
+    @Test
+    void defaultsServiceUserAndGroupFromPackageName() {
+        DebianPackageModel model = resolve(configWithName("my.app"), payload());
+        assertEquals("my-app", model.serviceUser());
+        assertEquals("my-app", model.serviceGroup());
+    }
+
+    @Test
+    void rejectsInvalidExplicitServiceUser() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> resolve(configWithNameAndUser("myapp", "bad.user"), payload()));
+        assertTrue(error.getMessage().contains("quarkus.debian.service-user"));
+    }
+
+    @Test
+    void acceptsExplicitServiceUserAndGroup() {
+        DebianPackageModel model = resolve(configWithAccounts("my.app", "svc_user", "svc_group"), payload());
+        assertEquals("svc_user", model.serviceUser());
+        assertEquals("svc_group", model.serviceGroup());
+    }
+
     private DebianPackageModel resolve(DebianPackagingConfig config, PackagePayload payload) {
         return DebianPackageModel.resolve(
                 config,
@@ -46,6 +85,21 @@ class DebianPackageModelTest {
     }
 
     private static DebianPackagingConfig configWithName(String name) {
+        return config(name, Optional.empty(), Optional.empty());
+    }
+
+    private static DebianPackagingConfig configWithNameAndUser(String name, String serviceUser) {
+        return config(name, Optional.of(serviceUser), Optional.empty());
+    }
+
+    private static DebianPackagingConfig configWithAccounts(String name, String serviceUser, String serviceGroup) {
+        return config(name, Optional.of(serviceUser), Optional.of(serviceGroup));
+    }
+
+    private static DebianPackagingConfig config(
+            String name,
+            Optional<String> serviceUser,
+            Optional<String> serviceGroup) {
         return new DebianPackagingConfig() {
             @Override
             public boolean enabled() {
@@ -129,12 +183,12 @@ class DebianPackageModelTest {
 
             @Override
             public Optional<String> serviceUser() {
-                return Optional.empty();
+                return serviceUser;
             }
 
             @Override
             public Optional<String> serviceGroup() {
-                return Optional.empty();
+                return serviceGroup;
             }
 
             @Override
