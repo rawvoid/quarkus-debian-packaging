@@ -3,7 +3,6 @@ set -e
 
 PACKAGE_NAME="${packageName}"
 SERVICE_NAME="${systemdServiceName}"
-HS_PERF_DATA_DIR="/tmp/hsperfdata_${serviceUser}"
 
 UPGRADE_RESTART_MARKER="/run/${PACKAGE_NAME}.upgrade-restart"
 
@@ -13,10 +12,6 @@ mark_service_for_upgrade_restart() {
 
 clear_upgrade_restart_marker() {
     rm -f "${UPGRADE_RESTART_MARKER}"
-}
-
-clear_hs_perf_data_directory() {
-    rm -rf "${HS_PERF_DATA_DIR}"
 }
 
 if [ -d /run/systemd/system ]; then
@@ -32,7 +27,7 @@ if [ -d /run/systemd/system ]; then
             systemctl --system disable "${SERVICE_NAME}" >/dev/null || true
             systemctl --system stop "${SERVICE_NAME}" >/dev/null || true
             clear_upgrade_restart_marker
-            clear_hs_perf_data_directory
+            ${hsPerfCleanup}
         ;;
     esac
 fi

@@ -87,6 +87,17 @@ class DebPackagerPayloadTest {
 
         assertTrue(control.get("control").contains("Architecture: amd64"));
         assertFalse(control.get("conffiles").contains("jvm.options"));
+        assertFalse(control.get("prerm").contains("hsperfdata"), "native prerm should not clear JVM hsperfdata");
+        assertTrue(control.get("prerm").contains("\n            :\n") || control.get("prerm").contains("            :"));
+    }
+
+    @Test
+    void jvmPrermClearsHsPerfData() throws Exception {
+        Path runner = tempDir.resolve("demo-runner.jar");
+        Files.writeString(runner, "uber");
+        Path deb = DebPackager.packageDeb(model("jvm-demo", PackagePayload.uberJar(runner), Optional.empty()));
+        Map<String, String> control = readControlStrings(deb);
+        assertTrue(control.get("prerm").contains("hsperfdata_jvm-demo"));
     }
 
     private DebianPackageModel model(String name, PackagePayload payload, Optional<String> architecture) {

@@ -32,6 +32,12 @@ public final class DebPackager {
 
             Map<String, String> vars = model.templateVariables();
             vars.put("installedSize", Long.toString(installedSizeKiB));
+            // JVM-only cleanup; native packages leave a no-op placeholder.
+            vars.put(
+                    "hsPerfCleanup",
+                    model.payload().isNative()
+                            ? ":"
+                            : "rm -rf \"/tmp/hsperfdata_" + model.serviceUser() + "\"");
 
             String control = TemplateRenderer.render("control", vars);
             List<DebEntry> controlEntries = List.of(
