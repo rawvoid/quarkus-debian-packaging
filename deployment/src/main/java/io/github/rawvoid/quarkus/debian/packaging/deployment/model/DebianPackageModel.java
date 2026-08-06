@@ -14,7 +14,30 @@ import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 /**
  * Fully resolved Debian package metadata used for template rendering and packaging.
  */
-public final class DebianPackageModel {
+public record DebianPackageModel(
+        String packageName,
+        String version,
+        String description,
+        String maintainer,
+        String section,
+        String priority,
+        String architecture,
+        String depends,
+        String installDir,
+        String configDir,
+        String dataDir,
+        String logDir,
+        String configFile,
+        String jvmOptionsFile,
+        String defaultsFile,
+        String binFile,
+        String mainExecutable,
+        String serviceUser,
+        String serviceGroup,
+        String systemdServiceName,
+        String systemdUnitFile,
+        Path outputFile,
+        PackagePayload payload) {
 
     /**
      * Debian Policy: package names must be at least two characters and match this pattern.
@@ -27,79 +50,6 @@ public final class DebianPackageModel {
      */
     private static final Pattern UNIX_ACCOUNT = Pattern.compile("^[a-z_][a-z0-9_-]{0,31}$");
     private static final int MAX_UNIX_ACCOUNT_LENGTH = 32;
-
-    private final String packageName;
-    private final String version;
-    private final String description;
-    private final String maintainer;
-    private final String section;
-    private final String priority;
-    private final String architecture;
-    private final String depends;
-    private final String installDir;
-    private final String configDir;
-    private final String dataDir;
-    private final String logDir;
-    private final String configFile;
-    private final String jvmOptionsFile;
-    private final String defaultsFile;
-    private final String binFile;
-    private final String mainExecutable;
-    private final String serviceUser;
-    private final String serviceGroup;
-    private final String systemdServiceName;
-    private final String systemdUnitFile;
-    private final Path outputFile;
-    private final PackagePayload payload;
-
-    private DebianPackageModel(
-            String packageName,
-            String version,
-            String description,
-            String maintainer,
-            String section,
-            String priority,
-            String architecture,
-            String depends,
-            String installDir,
-            String configDir,
-            String dataDir,
-            String logDir,
-            String configFile,
-            String jvmOptionsFile,
-            String defaultsFile,
-            String binFile,
-            String mainExecutable,
-            String serviceUser,
-            String serviceGroup,
-            String systemdServiceName,
-            String systemdUnitFile,
-            Path outputFile,
-            PackagePayload payload) {
-        this.packageName = packageName;
-        this.version = version;
-        this.description = description;
-        this.maintainer = maintainer;
-        this.section = section;
-        this.priority = priority;
-        this.architecture = architecture;
-        this.depends = depends;
-        this.installDir = installDir;
-        this.configDir = configDir;
-        this.dataDir = dataDir;
-        this.logDir = logDir;
-        this.configFile = configFile;
-        this.jvmOptionsFile = jvmOptionsFile;
-        this.defaultsFile = defaultsFile;
-        this.binFile = binFile;
-        this.mainExecutable = mainExecutable;
-        this.serviceUser = serviceUser;
-        this.serviceGroup = serviceGroup;
-        this.systemdServiceName = systemdServiceName;
-        this.systemdUnitFile = systemdUnitFile;
-        this.outputFile = outputFile;
-        this.payload = payload;
-    }
 
     public static DebianPackageModel resolve(
             DebianPackagingConfig config,
@@ -304,97 +254,5 @@ public final class DebianPackageModel {
             case "riscv64" -> "riscv64";
             default -> arch;
         };
-    }
-
-    public String packageName() {
-        return packageName;
-    }
-
-    public String version() {
-        return version;
-    }
-
-    public String description() {
-        return description;
-    }
-
-    public String maintainer() {
-        return maintainer;
-    }
-
-    public String section() {
-        return section;
-    }
-
-    public String priority() {
-        return priority;
-    }
-
-    public String architecture() {
-        return architecture;
-    }
-
-    public String depends() {
-        return depends;
-    }
-
-    public String installDir() {
-        return installDir;
-    }
-
-    public String configDir() {
-        return configDir;
-    }
-
-    public String dataDir() {
-        return dataDir;
-    }
-
-    public String logDir() {
-        return logDir;
-    }
-
-    public String configFile() {
-        return configFile;
-    }
-
-    public String jvmOptionsFile() {
-        return jvmOptionsFile;
-    }
-
-    public String defaultsFile() {
-        return defaultsFile;
-    }
-
-    public String binFile() {
-        return binFile;
-    }
-
-    public String mainExecutable() {
-        return mainExecutable;
-    }
-
-    public String serviceUser() {
-        return serviceUser;
-    }
-
-    public String serviceGroup() {
-        return serviceGroup;
-    }
-
-    public String systemdServiceName() {
-        return systemdServiceName;
-    }
-
-    public String systemdUnitFile() {
-        return systemdUnitFile;
-    }
-
-    public Path outputFile() {
-        return outputFile;
-    }
-
-    public PackagePayload payload() {
-        return payload;
     }
 }
