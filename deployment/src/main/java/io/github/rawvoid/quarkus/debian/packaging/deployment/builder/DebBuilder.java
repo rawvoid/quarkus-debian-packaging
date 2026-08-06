@@ -126,14 +126,12 @@ public final class DebBuilder {
                     continue;
                 }
 
-                long size;
                 if (entry.content() != null) {
-                    size = entry.content().length;
                     writeFile(tar, entry, entry.content());
                     md5.reset();
                     md5.update(entry.content());
                 } else {
-                    size = Files.size(entry.source());
+                    long size = Files.size(entry.source());
                     md5.reset();
                     try (InputStream in = Files.newInputStream(entry.source());
                             DigestInputStream din = new DigestInputStream(in, md5)) {

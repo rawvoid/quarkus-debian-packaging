@@ -18,7 +18,6 @@ import io.quarkus.deployment.pkg.builditem.ArtifactResultBuildItem;
 import io.quarkus.deployment.pkg.builditem.JarBuildItem;
 import io.quarkus.deployment.pkg.builditem.NativeImageBuildItem;
 import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
-import io.quarkus.deployment.pkg.steps.NativeBuild;
 
 class QuarkusDebianPackagingProcessor {
 
@@ -35,7 +34,7 @@ class QuarkusDebianPackagingProcessor {
      * packaging without registering {@code deb} as the primary runnable artifact (which would break
      * {@code @QuarkusIntegrationTest}).
      */
-    @BuildStep(onlyIf = { IsProduction.class, DebianEnabled.class }, onlyIfNot = NativeBuild.class)
+    @BuildStep(onlyIf = { IsProduction.class, DebianEnabled.class }, onlyIfNot = NativeBinaryBuild.class)
     @Produce(ArtifactResultBuildItem.class)
     void packageJvmDeb(
             DebianPackagingConfig config,
@@ -47,7 +46,7 @@ class QuarkusDebianPackagingProcessor {
         buildDeb(config, applicationInfo, outputTarget, payload);
     }
 
-    @BuildStep(onlyIf = { IsProduction.class, NativeBuild.class, DebianEnabled.class })
+    @BuildStep(onlyIf = { IsProduction.class, NativeBinaryBuild.class, DebianEnabled.class })
     @Produce(ArtifactResultBuildItem.class)
     void packageNativeDeb(
             DebianPackagingConfig config,

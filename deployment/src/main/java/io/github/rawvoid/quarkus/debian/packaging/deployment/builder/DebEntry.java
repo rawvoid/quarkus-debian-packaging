@@ -14,9 +14,12 @@ public record DebEntry(
         boolean directory,
         boolean confFile) {
 
-    public static final int MODE_FILE = 0644;
-    public static final int MODE_EXEC = 0755;
-    public static final int MODE_DIR = 0755;
+    /** Unix permission bits corresponding to {@code 0644}. */
+    public static final int MODE_FILE = Integer.parseInt("644", 8);
+    /** Unix permission bits corresponding to {@code 0755}. */
+    public static final int MODE_EXEC = Integer.parseInt("755", 8);
+    /** Unix permission bits corresponding to {@code 0755}. */
+    public static final int MODE_DIR = Integer.parseInt("755", 8);
 
     public DebEntry {
         packagePath = normalize(packagePath);
