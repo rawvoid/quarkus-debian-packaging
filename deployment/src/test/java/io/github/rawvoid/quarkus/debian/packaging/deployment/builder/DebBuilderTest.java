@@ -26,6 +26,21 @@ class DebBuilderTest {
     Path tempDir;
 
     @Test
+    void installedSizeCountsDirectoriesAndCeilFileKiB() throws Exception {
+        Path small = tempDir.resolve("small.txt");
+        Files.writeString(small, "x"); // 1 byte -> 1 KiB
+        Path large = tempDir.resolve("large.bin");
+        Files.write(large, new byte[2048]); // 2 KiB exactly -> 2 KiB
+
+        List<DebEntry> entries = List.of(
+                DebEntry.file("usr/share/demo/small.txt", small, DebEntry.MODE_FILE, false),
+                DebEntry.file("usr/share/demo/large.bin", large, DebEntry.MODE_FILE, false));
+
+        // parent dirs: usr, usr/share, usr/share/demo => 3; files => 1 + 2
+        assertEquals(6L, DebBuilder.installedSizeKiB(entries));
+    }
+
+    @Test
     void buildsValidDebWithControlAndData() throws Exception {
         Path payload = tempDir.resolve("app.txt");
         Files.writeString(payload, "hello-deb");

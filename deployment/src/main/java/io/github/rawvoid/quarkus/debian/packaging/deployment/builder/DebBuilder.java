@@ -1,6 +1,5 @@
 package io.github.rawvoid.quarkus.debian.packaging.deployment.builder;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -18,6 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 
 import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
 import org.apache.commons.compress.archivers.ar.ArArchiveOutputStream;
@@ -48,14 +48,22 @@ public final class DebBuilder {
             Files.createDirectories(parent);
         }
 
-        DataArchive dataArchive = buildDataArchive(dataEntries);
-        byte[] controlTarGz = buildControlArchive(controlText, controlEntries, dataArchive);
+        Path workDir = Files.createTempDirectory("quarkus-debian-");
+        try {
+            Path dataTarGz = workDir.resolve("data.tar.gz");
+            Path controlTarGz = workDir.resolve("control.tar.gz");
 
-        try (OutputStream fileOut = Files.newOutputStream(debFile);
-                ArArchiveOutputStream ar = new ArArchiveOutputStream(fileOut)) {
-            writeArEntry(ar, "debian-binary", DEBIAN_BINARY);
-            writeArEntry(ar, "control.tar.gz", controlTarGz);
-            writeArEntry(ar, "data.tar.gz", dataArchive.bytes());
+            DataArchiveMeta dataMeta = writeDataArchive(dataTarGz, dataEntries);
+            writeControlArchive(controlTarGz, controlText, controlEntries, dataMeta);
+
+            try (OutputStream fileOut = Files.newOutputStream(debFile);
+                    ArArchiveOutputStream ar = new ArArchiveOutputStream(fileOut)) {
+                writeArEntry(ar, "debian-binary", DEBIAN_BINARY);
+                writeArEntry(ar, "control.tar.gz", controlTarGz);
+                writeArEntry(ar, "data.tar.gz", dataTarGz);
+            }
+        } finally {
+            deleteRecursively(workDir);
         }
     }
 
@@ -66,24 +74,33 @@ public final class DebBuilder {
         ar.closeArchiveEntry();
     }
 
-    private static byte[] buildControlArchive(String controlText, List<DebEntry> controlEntries, DataArchive dataArchive)
-            throws IOException {
+    private static void writeArEntry(ArArchiveOutputStream ar, String name, Path content) throws IOException {
+        ArArchiveEntry entry = new ArArchiveEntry(name, Files.size(content));
+        ar.putArchiveEntry(entry);
+        Files.copy(content, ar);
+        ar.closeArchiveEntry();
+    }
+
+    private static void writeControlArchive(
+            Path controlTarGz,
+            String controlText,
+            List<DebEntry> controlEntries,
+            DataArchiveMeta dataMeta) throws IOException {
         List<DebEntry> all = new ArrayList<>();
         all.add(DebEntry.bytes("control", controlText.getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
-        all.add(DebEntry.bytes("md5sums", dataArchive.md5sums().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
-        if (!dataArchive.conffiles().isEmpty()) {
+        all.add(DebEntry.bytes("md5sums", dataMeta.md5sums().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
+        if (!dataMeta.conffiles().isEmpty()) {
             StringBuilder conf = new StringBuilder();
-            for (String path : dataArchive.conffiles()) {
+            for (String path : dataMeta.conffiles()) {
                 conf.append('/').append(path).append('\n');
             }
             all.add(DebEntry.bytes("conffiles", conf.toString().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
         }
         all.addAll(controlEntries);
-
-        return writeTarGz(all, false);
+        writeTarGz(controlTarGz, all, false);
     }
 
-    private static DataArchive buildDataArchive(List<DebEntry> dataEntries) throws IOException {
+    private static DataArchiveMeta writeDataArchive(Path dataTarGz, List<DebEntry> dataEntries) throws IOException {
         List<DebEntry> expanded = expandWithParentDirs(dataEntries);
         MessageDigest md5;
         try {
@@ -92,14 +109,13 @@ public final class DebBuilder {
             throw new IllegalStateException("MD5 not available", e);
         }
 
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
         StringBuilder md5sums = new StringBuilder();
         Set<String> conffiles = new TreeSet<>();
-        long installedBytes = 0;
 
         GzipParameters gzip = new GzipParameters();
         gzip.setOperatingSystem(3); // Unix
-        try (GzipCompressorOutputStream gz = new GzipCompressorOutputStream(bos, gzip);
+        try (OutputStream fileOut = Files.newOutputStream(dataTarGz);
+                GzipCompressorOutputStream gz = new GzipCompressorOutputStream(fileOut, gzip);
                 TarArchiveOutputStream tar = new TarArchiveOutputStream(gz, StandardCharsets.UTF_8.name())) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
             tar.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
@@ -124,7 +140,6 @@ public final class DebBuilder {
                         writeFile(tar, entry, din, size);
                     }
                 }
-                installedBytes += size;
                 String digest = HexFormat.of().formatHex(md5.digest());
                 md5sums.append(digest).append("  ").append(entry.packagePath()).append('\n');
                 if (entry.confFile()) {
@@ -134,15 +149,15 @@ public final class DebBuilder {
             tar.finish();
         }
 
-        return new DataArchive(bos.toByteArray(), md5sums.toString(), conffiles, installedBytes);
+        return new DataArchiveMeta(md5sums.toString(), conffiles);
     }
 
-    private static byte[] writeTarGz(List<DebEntry> entries, boolean includeParents) throws IOException {
+    private static void writeTarGz(Path target, List<DebEntry> entries, boolean includeParents) throws IOException {
         List<DebEntry> expanded = includeParents ? expandWithParentDirs(entries) : entries;
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
         GzipParameters gzip = new GzipParameters();
         gzip.setOperatingSystem(3);
-        try (GzipCompressorOutputStream gz = new GzipCompressorOutputStream(bos, gzip);
+        try (OutputStream fileOut = Files.newOutputStream(target);
+                GzipCompressorOutputStream gz = new GzipCompressorOutputStream(fileOut, gzip);
                 TarArchiveOutputStream tar = new TarArchiveOutputStream(gz, StandardCharsets.UTF_8.name())) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
             tar.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
@@ -159,10 +174,9 @@ public final class DebBuilder {
             }
             tar.finish();
         }
-        return bos.toByteArray();
     }
 
-    private static List<DebEntry> expandWithParentDirs(List<DebEntry> entries) {
+    static List<DebEntry> expandWithParentDirs(List<DebEntry> entries) {
         Set<String> dirs = new LinkedHashSet<>();
         List<DebEntry> files = new ArrayList<>();
         for (DebEntry entry : entries) {
@@ -227,12 +241,39 @@ public final class DebBuilder {
     }
 
     /**
-     * Formats the Installed-Size field (KiB, rounded up).
+     * Estimates Installed-Size in KiB using a Debian-style approximation:
+     * each file contributes {@code ceil(size / 1024)} and each directory contributes 1 KiB.
      */
-    public static long installedSizeKiB(long installedBytes) {
-        return Math.max(1L, (installedBytes + 1023) / 1024);
+    public static long installedSizeKiB(List<DebEntry> dataEntries) throws IOException {
+        Objects.requireNonNull(dataEntries, "dataEntries");
+        List<DebEntry> expanded = expandWithParentDirs(dataEntries);
+        long kib = 0;
+        for (DebEntry entry : expanded) {
+            if (entry.directory()) {
+                kib += 1;
+                continue;
+            }
+            long size = entry.content() != null ? entry.content().length : Files.size(entry.source());
+            kib += Math.max(1L, (size + 1023) / 1024);
+        }
+        return Math.max(1L, kib);
     }
 
-    private record DataArchive(byte[] bytes, String md5sums, Set<String> conffiles, long installedBytes) {
+    private static void deleteRecursively(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> walk = Files.walk(root)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                    // best-effort cleanup of temp staging
+                }
+            });
+        }
+    }
+
+    private record DataArchiveMeta(String md5sums, Set<String> conffiles) {
     }
 }

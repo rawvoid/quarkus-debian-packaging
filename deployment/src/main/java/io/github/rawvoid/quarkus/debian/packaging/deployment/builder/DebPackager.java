@@ -28,7 +28,7 @@ public final class DebPackager {
         try {
             // Data templates do not use installedSize; build the tree once.
             List<DebEntry> dataEntries = buildDataEntries(model);
-            long installedSizeKiB = DebBuilder.installedSizeKiB(estimateInstalledBytes(dataEntries));
+            long installedSizeKiB = DebBuilder.installedSizeKiB(dataEntries);
 
             Map<String, String> vars = model.templateVariables();
             vars.put("installedSize", Long.toString(installedSizeKiB));
@@ -144,21 +144,6 @@ public final class DebPackager {
                 }
             });
         }
-    }
-
-    private static long estimateInstalledBytes(List<DebEntry> entries) throws IOException {
-        long total = 0;
-        for (DebEntry entry : entries) {
-            if (entry.directory()) {
-                continue;
-            }
-            if (entry.content() != null) {
-                total += entry.content().length;
-            } else {
-                total += Files.size(entry.source());
-            }
-        }
-        return total;
     }
 
     private static String stripLeadingSlash(String absolutePath) {
