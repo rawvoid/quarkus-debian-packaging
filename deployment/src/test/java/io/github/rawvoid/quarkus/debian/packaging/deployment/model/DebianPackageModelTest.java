@@ -34,6 +34,19 @@ class DebianPackageModelTest {
     }
 
     @Test
+    void normalizesUnderscoresAndSpacesInPackageName() {
+        assertEquals("my-app-service", DebianPackageModel.sanitizePackageName("My_App Service"));
+        DebianPackageModel model = resolve(configWithName("hello_world"), payload());
+        assertEquals("hello-world", model.packageName());
+    }
+
+    @Test
+    void collapsesRepeatedHyphensWhenNormalizingPackageName() {
+        assertEquals("foo-bar", DebianPackageModel.sanitizePackageName("foo__bar"));
+        assertEquals("foo-bar", DebianPackageModel.sanitizePackageName("foo--bar"));
+    }
+
+    @Test
     void derivesUnixAccountFromPackageNameWithDotsAndPlus() {
         assertEquals("my-app-1", DebianPackageModel.deriveUnixAccountName("my.app+1"));
     }

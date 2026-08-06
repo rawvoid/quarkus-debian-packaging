@@ -201,12 +201,25 @@ public final class DebianPackageModel {
         return vars;
     }
 
-    private static String sanitizePackageName(String raw) {
+    /**
+     * Normalizes a raw application/artifact name into a Debian package name candidate:
+     * lowercases, maps {@code _} and whitespace to {@code -}, collapses repeated hyphens,
+     * and strips leading/trailing hyphens. The result is still validated against Policy.
+     */
+    static String sanitizePackageName(String raw) {
         if (raw == null || raw.isBlank() || ApplicationInfoBuildItem.UNSET_VALUE.equals(raw)) {
             throw new IllegalArgumentException(
                     "Debian package name is unset. Configure quarkus.application.name or quarkus.debian.name.");
         }
-        return raw.trim().toLowerCase(Locale.ROOT);
+        String name = raw.trim().toLowerCase(Locale.ROOT);
+        name = name.replace('_', '-');
+        name = name.replaceAll("\\s+", "-");
+        // Drop characters outside the Debian package name alphabet (keep [a-z0-9+.-]).
+        name = name.replaceAll("[^a-z0-9+.-]+", "-");
+        name = name.replaceAll("-{2,}", "-");
+        name = name.replaceAll("^-+", "");
+        name = name.replaceAll("-+$", "");
+        return name;
     }
 
     /**
