@@ -11,6 +11,10 @@
     <name>Quarkus Debian Packaging - Integration Tests</name>
 
     <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <gpg.skip>true</gpg.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.source.skip>true</maven.source.skip>
         <!-- Deb layout IT runs after package; QuarkusIntegrationTest remains native-profile only. -->
         <skipITs>false</skipITs>
     </properties>
@@ -44,6 +48,13 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <configuration>
+                    <skipPublishing>true</skipPublishing>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>io.quarkus</groupId>
                 <artifactId>quarkus-maven-plugin</artifactId>

@@ -9,6 +9,8 @@
     </parent>
     <artifactId>quarkus-debian-packaging</artifactId>
     <name>Quarkus Debian Packaging - Runtime</name>
+    <description>Quarkus extension for packaging applications into native Debian packages (.deb)</description>
+    <url>https://github.com/rawvoid/quarkus-debian-packaging</url>
 
     <dependencies>
         <dependency>

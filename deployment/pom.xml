@@ -9,6 +9,8 @@
     </parent>
     <artifactId>quarkus-debian-packaging-deployment</artifactId>
     <name>Quarkus Debian Packaging - Deployment</name>
+    <description>Quarkus Debian Packaging - Deployment</description>
+    <url>https://github.com/rawvoid/quarkus-debian-packaging</url>
 
     <dependencies>
         <dependency>
