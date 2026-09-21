@@ -28,7 +28,6 @@ import io.quarkus.deployment.IsProduction;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.Produce;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
-import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.pkg.PackageConfig;
 import io.quarkus.deployment.pkg.builditem.ArtifactResultBuildItem;
 import io.quarkus.deployment.pkg.builditem.JarBuildItem;
@@ -43,13 +42,7 @@ import io.quarkus.deployment.pkg.steps.NativeBuild;
  */
 class QuarkusDebianPackagingProcessor {
 
-    private static final String FEATURE = "debian-packaging";
     private static final Logger LOG = Logger.getLogger(QuarkusDebianPackagingProcessor.class);
-
-    @BuildStep
-    FeatureBuildItem feature() {
-        return new FeatureBuildItem(FEATURE);
-    }
 
     /**
      * Produce {@link ArtifactResultBuildItem} only as a pseudo-target so this step always runs in production
