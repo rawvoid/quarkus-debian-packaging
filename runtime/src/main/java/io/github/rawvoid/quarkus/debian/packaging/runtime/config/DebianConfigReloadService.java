@@ -33,6 +33,7 @@ import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.spi.ConfigSource;
 import org.jboss.logging.Logger;
 
+import io.quarkus.runtime.configuration.ConfigUtils;
 import io.smallrye.config.ConfigValidationException;
 import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
@@ -102,7 +103,10 @@ public class DebianConfigReloadService {
             }
             testSources.add(new InMemoryConfigSource(configSource.getName(), configSource.getOrdinal(), newProps));
 
-            SmallRyeConfigBuilder builder = new SmallRyeConfigBuilder()
+            SmallRyeConfigBuilder builder = ConfigUtils.emptyConfigBuilder()
+                    .setAddDefaultSources(false)
+                    .addDiscoveredCustomizers()
+                    .addDiscoveredValidator()
                     .withProfiles(currentConfig.getProfiles())
                     .withSources(testSources)
                     .withValidateUnknown(false);
