@@ -50,15 +50,17 @@ class TemplateRendererTest {
     void rendersJvmLauncher() {
         String launcher = TemplateRenderer.render("launcher-jvm.sh", Map.of(
                 "packageName", "demo",
+                "installDir", "/usr/share/demo",
                 "systemdServiceName", "demo.service",
                 "defaultsFile", "/etc/default/demo",
                 "jvmOptionsFile", "/etc/demo/jvm.options",
                 "mainExecutable", "/usr/share/demo/quarkus-run.jar"));
         assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
         assertTrue(launcher.contains("MAIN_JAR=\"/usr/share/demo/quarkus-run.jar\""));
+        assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
         assertTrue(launcher.contains("JDK_JAVA_OPTIONS"));
         assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
-        assertTrue(launcher.contains("SOCKET_FILE=\"/run/demo/control.sock\""));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
         assertTrue(launcher.contains("exec \"${JAVA}\" -jar \"${MAIN_JAR}\" \"$@\""));
     }
 
@@ -66,14 +68,26 @@ class TemplateRendererTest {
     void rendersNativeLauncher() {
         String launcher = TemplateRenderer.render("launcher-native.sh", Map.of(
                 "packageName", "demo",
+                "installDir", "/usr/share/demo",
                 "systemdServiceName", "demo.service",
                 "defaultsFile", "/etc/default/demo",
                 "mainExecutable", "/usr/share/demo/demo-runner"));
         assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
         assertTrue(launcher.contains("MAIN_EXECUTABLE=\"/usr/share/demo/demo-runner\""));
+        assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
         assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
-        assertTrue(launcher.contains("SOCKET_FILE=\"/run/demo/control.sock\""));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
         assertTrue(launcher.contains("exec \"${MAIN_EXECUTABLE}\" \"$@\""));
+    }
+
+    @Test
+    void rendersReloadScript() {
+        String reload = TemplateRenderer.render("reload", Map.of(
+                "packageName", "demo",
+                "systemdServiceName", "demo.service"));
+        assertTrue(reload.contains("/run/demo/control.sock"));
+        assertTrue(reload.contains("demo.service"));
+        assertTrue(reload.contains("import socket"));
     }
 
     @Test

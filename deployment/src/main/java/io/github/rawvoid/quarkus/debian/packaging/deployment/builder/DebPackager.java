@@ -87,6 +87,13 @@ public final class DebPackager {
                 DebEntry.MODE_EXEC,
                 false));
 
+        // Reload helper script
+        entries.add(DebEntry.bytes(
+                stripLeadingSlash(model.installDir() + "/reload"),
+                TemplateRenderer.renderBytes("reload", vars),
+                DebEntry.MODE_EXEC,
+                false));
+
         // systemd unit
         entries.add(DebEntry.bytes(
                 stripLeadingSlash(model.systemdUnitFile()),
