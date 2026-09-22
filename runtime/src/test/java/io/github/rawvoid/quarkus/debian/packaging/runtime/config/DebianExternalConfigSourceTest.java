@@ -58,4 +58,43 @@ class DebianExternalConfigSourceTest {
         assertEquals("60s", source.getValue("app.timeout"));
         assertEquals("Updated", source.getValue("app.greeting"));
     }
+
+    @Test
+    void testFactoryRespectsDisabledSwitches() {
+        var factory = new DebianConfigSourceFactory();
+
+        // 1. When quarkus.debian.enabled = false
+        var disabledContext = new io.smallrye.config.ConfigSourceContext() {
+            @Override
+            public io.smallrye.config.ConfigValue getValue(String name) {
+                if ("quarkus.debian.enabled".equals(name)) {
+                    return io.smallrye.config.ConfigValue.builder().withName(name).withValue("false").build();
+                }
+                return null;
+            }
+
+            @Override
+            public java.util.Iterator<String> iterateNames() {
+                return java.util.Collections.emptyIterator();
+            }
+        };
+        org.junit.jupiter.api.Assertions.assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
+
+        // 2. When auto-bridge = false
+        var noBridgeContext = new io.smallrye.config.ConfigSourceContext() {
+            @Override
+            public io.smallrye.config.ConfigValue getValue(String name) {
+                if ("quarkus.debian.config.auto-bridge".equals(name)) {
+                    return io.smallrye.config.ConfigValue.builder().withName(name).withValue("false").build();
+                }
+                return null;
+            }
+
+            @Override
+            public java.util.Iterator<String> iterateNames() {
+                return java.util.Collections.emptyIterator();
+            }
+        };
+        org.junit.jupiter.api.Assertions.assertFalse(factory.getConfigSources(noBridgeContext).iterator().hasNext());
+    }
 }

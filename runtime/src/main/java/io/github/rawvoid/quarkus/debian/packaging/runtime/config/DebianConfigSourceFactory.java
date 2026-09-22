@@ -40,6 +40,11 @@ public class DebianConfigSourceFactory implements ConfigSourceFactory {
 
     @Override
     public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context) {
+        ConfigValue debianEnabled = context.getValue("quarkus.debian.enabled");
+        if (debianEnabled != null && "false".equalsIgnoreCase(debianEnabled.getValue())) {
+            return Collections.emptyList();
+        }
+
         ConfigValue autoBridge = context.getValue("quarkus.debian.config.auto-bridge");
         if (autoBridge != null && "false".equalsIgnoreCase(autoBridge.getValue())) {
             return Collections.emptyList();

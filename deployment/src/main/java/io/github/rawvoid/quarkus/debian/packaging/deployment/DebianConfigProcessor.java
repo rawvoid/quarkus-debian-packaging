@@ -26,6 +26,8 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.builditem.ConfigMappingBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
+import io.quarkus.runtime.annotations.ConfigPhase;
+import io.quarkus.runtime.annotations.ConfigRoot;
 
 /**
  * Deployment processor that registers config mappings and initializes runtime reload server.
@@ -34,7 +36,7 @@ import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
  */
 public class DebianConfigProcessor {
 
-    @BuildStep
+    @BuildStep(onlyIf = DebianEnabled.class)
     @Record(ExecutionTime.RUNTIME_INIT)
     public void setupConfigReload(
             DebianConfigRecorder recorder,
@@ -44,6 +46,10 @@ public class DebianConfigProcessor {
             List<ConfigMappingBuildItem> configMappings) {
 
         for (ConfigMappingBuildItem mapping : configMappings) {
+            ConfigRoot root = mapping.getConfigClass().getAnnotation(ConfigRoot.class);
+            if (root != null && root.phase() == ConfigPhase.BUILD_TIME) {
+                continue;
+            }
             recorder.registerMapping(mapping.getConfigClass().getName(), mapping.getPrefix());
         }
 
