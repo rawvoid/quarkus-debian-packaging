@@ -81,16 +81,21 @@ public class QuarkusDebianPackagingProdModeTest {
         assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/application.properties"));
         assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/jvm.options"));
 
-        assertTrue(data.keySet().stream().anyMatch(p -> p.endsWith("quarkus-run.jar")));
         assertTrue(data.containsKey("usr/share/prod-deb-app/reload"));
+        assertTrue(data.containsKey("usr/share/prod-deb-app/startup"));
         assertTrue(data.containsKey("usr/bin/prod-deb-app"));
         assertTrue(data.containsKey("usr/lib/systemd/system/prod-deb-app.service"));
         assertTrue(data.containsKey("etc/default/prod-deb-app"));
         String launcher = data.get("usr/bin/prod-deb-app");
-        assertTrue(launcher.contains("exec \"${JAVA}\" -jar"));
-        assertTrue(launcher.contains("/usr/share/prod-deb-app/quarkus-run.jar"));
-        assertFalse(launcher.contains("${mainExecutable}"), "Launcher template variables must be resolved");
-        assertFalse(launcher.contains("${jvmOptionsFile}"), "Launcher template variables must be resolved");
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
+        assertFalse(launcher.contains("${installDir}"), "Launcher template variables must be resolved");
+        assertFalse(launcher.contains("${defaultsFile}"), "Launcher template variables must be resolved");
+
+        String startup = data.get("usr/share/prod-deb-app/startup");
+        assertTrue(startup.contains("exec \"${JAVA}\" -jar"));
+        assertTrue(startup.contains("/usr/share/prod-deb-app/quarkus-run.jar"));
+        assertFalse(startup.contains("${mainExecutable}"), "Startup template variables must be resolved");
+        assertFalse(startup.contains("${jvmOptionsFile}"), "Startup template variables must be resolved");
         assertTrue(data.get("etc/default/prod-deb-app")
                 .contains("QUARKUS_CONFIG_LOCATIONS=file:/etc/prod-deb-app/application.properties"));
         assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecStart=/usr/bin/prod-deb-app"));

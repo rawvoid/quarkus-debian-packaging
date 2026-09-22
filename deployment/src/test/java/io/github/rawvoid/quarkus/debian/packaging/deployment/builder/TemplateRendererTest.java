@@ -56,45 +56,36 @@ class TemplateRendererTest {
     }
 
     @Test
-    void rendersJvmLauncher() {
-        String launcher = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+    void rendersLauncherScript() {
+        String launcher = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", "/usr/share/demo",
-                "systemdServiceName", "demo.service",
-                "defaultsFile", "/etc/default/demo",
+                "defaultsFile", "/etc/default/demo"));
+        assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
+        assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
+        assertTrue(launcher.contains("--reload)"));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
+        assertTrue(launcher.contains("export \"${key}=${val}\""));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\" \"$@\""));
+    }
+
+    @Test
+    void rendersJvmStartupScript() {
+        String startup = TemplateRenderer.render("startup-jvm.sh", Map.of(
                 "jvmOptionsFile", "/etc/demo/jvm.options",
                 "mainExecutable", "/usr/share/demo/quarkus-run.jar"));
-        assertTrue(launcher.contains("MAIN_JAR=\"/usr/share/demo/quarkus-run.jar\""));
-        assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
-        assertTrue(launcher.contains("JDK_JAVA_OPTIONS"));
-        assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
-        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
-        assertTrue(launcher.contains(". \"${INSTALL_DIR}/environment\""));
-        assertTrue(launcher.contains("exec \"${JAVA}\" -jar \"${MAIN_JAR}\" \"$@\""));
+        assertTrue(startup.contains("MAIN_JAR=\"/usr/share/demo/quarkus-run.jar\""));
+        assertTrue(startup.contains("JVM_OPTIONS_FILE=\"/etc/demo/jvm.options\""));
+        assertTrue(startup.contains("JDK_JAVA_OPTIONS"));
+        assertTrue(startup.contains("exec \"${JAVA}\" -jar \"${MAIN_JAR}\" \"$@\""));
     }
 
     @Test
-    void rendersNativeLauncher() {
-        String launcher = TemplateRenderer.render("launcher-native.sh", Map.of(
-                "packageName", "demo",
-                "installDir", "/usr/share/demo",
-                "systemdServiceName", "demo.service",
-                "defaultsFile", "/etc/default/demo",
+    void rendersNativeStartupScript() {
+        String startup = TemplateRenderer.render("startup-native.sh", Map.of(
                 "mainExecutable", "/usr/share/demo/demo-runner"));
-        assertTrue(launcher.contains("MAIN_EXECUTABLE=\"/usr/share/demo/demo-runner\""));
-        assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
-        assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
-        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
-        assertTrue(launcher.contains(". \"${INSTALL_DIR}/environment\""));
-        assertTrue(launcher.contains("exec \"${MAIN_EXECUTABLE}\" \"$@\""));
-    }
-
-    @Test
-    void rendersEnvironmentScript() {
-        String env = TemplateRenderer.render("environment", Map.of(
-                "defaultsFile", "/etc/default/demo"));
-        assertTrue(env.contains("DEFAULTS_FILE=\"${DEFAULTS_FILE:-/etc/default/demo}\""));
-        assertTrue(env.contains("export \"${key}=${val}\""));
+        assertTrue(startup.contains("MAIN_EXECUTABLE=\"/usr/share/demo/demo-runner\""));
+        assertTrue(startup.contains("exec \"${MAIN_EXECUTABLE}\" \"$@\""));
     }
 
     @Test
@@ -167,17 +158,16 @@ class TemplateRendererTest {
         Path jvmOptions = tempDir.resolve("jvm.options");
         Files.writeString(jvmOptions, "");
 
-        Path envScript = tempDir.resolve("environment");
-        Files.writeString(envScript, TemplateRenderer.render("environment", Map.of(
-                "defaultsFile", defaultsFile.toString())));
+        Path startupScript = tempDir.resolve("startup");
+        Files.writeString(startupScript, TemplateRenderer.render("startup-jvm.sh", Map.of(
+                "jvmOptionsFile", jvmOptions.toString(),
+                "mainExecutable", mainJar.toString())));
+        setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", tempDir.toString(),
-                "systemdServiceName", "demo.service",
-                "defaultsFile", defaultsFile.toString(),
-                "jvmOptionsFile", jvmOptions.toString(),
-                "mainExecutable", mainJar.toString()));
+                "defaultsFile", defaultsFile.toString()));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -208,10 +198,6 @@ class TemplateRendererTest {
         Path defaultsFile = tempDir.resolve("defaults");
         Files.writeString(defaultsFile, "PASSWORD=y]@95#<r1Yxg\n");
 
-        Path envScript = tempDir.resolve("environment");
-        Files.writeString(envScript, TemplateRenderer.render("environment", Map.of(
-                "defaultsFile", defaultsFile.toString())));
-
         Path mockRunner = tempDir.resolve("demo-runner");
         Files.writeString(mockRunner, """
                 #!/bin/sh
@@ -219,12 +205,15 @@ class TemplateRendererTest {
                 """);
         setPosixExecutable(mockRunner);
 
-        String scriptContent = TemplateRenderer.render("launcher-native.sh", Map.of(
+        Path startupScript = tempDir.resolve("startup");
+        Files.writeString(startupScript, TemplateRenderer.render("startup-native.sh", Map.of(
+                "mainExecutable", mockRunner.toString())));
+        setPosixExecutable(startupScript);
+
+        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", tempDir.toString(),
-                "systemdServiceName", "demo.service",
-                "defaultsFile", defaultsFile.toString(),
-                "mainExecutable", mockRunner.toString()));
+                "defaultsFile", defaultsFile.toString()));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -252,13 +241,10 @@ class TemplateRendererTest {
                 """);
         setPosixExecutable(reloadScript);
 
-        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", tempDir.toString(),
-                "systemdServiceName", "demo.service",
-                "defaultsFile", defaultsFile.toString(),
-                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
-                "mainExecutable", tempDir.resolve("dummy.jar").toString()));
+                "defaultsFile", defaultsFile.toString()));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -287,17 +273,16 @@ class TemplateRendererTest {
         Path mainJar = tempDir.resolve("dummy.jar");
         Files.writeString(mainJar, "jar-content");
 
-        Path envScript = tempDir.resolve("environment");
-        Files.writeString(envScript, TemplateRenderer.render("environment", Map.of(
-                "defaultsFile", defaultsFile.toString())));
+        Path startupScript = tempDir.resolve("startup");
+        Files.writeString(startupScript, TemplateRenderer.render("startup-jvm.sh", Map.of(
+                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
+                "mainExecutable", mainJar.toString())));
+        setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", tempDir.toString(),
-                "systemdServiceName", "demo.service",
-                "defaultsFile", defaultsFile.toString(),
-                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
-                "mainExecutable", mainJar.toString()));
+                "defaultsFile", defaultsFile.toString()));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -327,17 +312,16 @@ class TemplateRendererTest {
         Path mainJar = tempDir.resolve("dummy.jar");
         Files.writeString(mainJar, "jar-content");
 
-        Path envScript = tempDir.resolve("environment");
-        Files.writeString(envScript, TemplateRenderer.render("environment", Map.of(
-                "defaultsFile", defaultsFile.toString())));
+        Path startupScript = tempDir.resolve("startup");
+        Files.writeString(startupScript, TemplateRenderer.render("startup-jvm.sh", Map.of(
+                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
+                "mainExecutable", mainJar.toString())));
+        setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", tempDir.toString(),
-                "systemdServiceName", "demo.service",
-                "defaultsFile", defaultsFile.toString(),
-                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
-                "mainExecutable", mainJar.toString()));
+                "defaultsFile", defaultsFile.toString()));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -352,14 +336,11 @@ class TemplateRendererTest {
     }
 
     @Test
-    void launcherFailsWhenEnvironmentScriptMissing(@TempDir Path tempDir) throws Exception {
-        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+    void launcherFailsWhenStartupScriptMissing(@TempDir Path tempDir) throws Exception {
+        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
                 "installDir", tempDir.toString(),
-                "systemdServiceName", "demo.service",
-                "defaultsFile", tempDir.resolve("defaults").toString(),
-                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
-                "mainExecutable", tempDir.resolve("dummy.jar").toString()));
+                "defaultsFile", tempDir.resolve("defaults").toString()));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -371,7 +352,7 @@ class TemplateRendererTest {
         int exitCode = process.waitFor();
 
         assertNotEquals(0, exitCode);
-        assertTrue(errOutput.contains("Environment script not found"));
+        assertTrue(errOutput.contains("Startup script not found"));
     }
 
     private static void setPosixExecutable(Path path) throws IOException {

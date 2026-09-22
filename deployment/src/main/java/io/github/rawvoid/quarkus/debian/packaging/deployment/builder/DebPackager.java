@@ -79,11 +79,18 @@ public final class DebPackager {
         // Application payload
         addPayload(entries, model);
 
-        // Launcher
-        String launcherTemplate = model.payload().isNative() ? "launcher-native.sh" : "launcher-jvm.sh";
+        // Launcher (public entrypoint)
         entries.add(DebEntry.bytes(
                 stripLeadingSlash(model.binFile()),
-                TemplateRenderer.renderBytes(launcherTemplate, vars),
+                TemplateRenderer.renderBytes("launcher.sh", vars),
+                DebEntry.MODE_EXEC,
+                false));
+
+        // Startup runner script
+        String startupTemplate = model.payload().isNative() ? "startup-native.sh" : "startup-jvm.sh";
+        entries.add(DebEntry.bytes(
+                stripLeadingSlash(model.installDir() + "/startup"),
+                TemplateRenderer.renderBytes(startupTemplate, vars),
                 DebEntry.MODE_EXEC,
                 false));
 
@@ -92,13 +99,6 @@ public final class DebPackager {
                 stripLeadingSlash(model.installDir() + "/reload"),
                 TemplateRenderer.renderBytes("reload", vars),
                 DebEntry.MODE_EXEC,
-                false));
-
-        // Environment script
-        entries.add(DebEntry.bytes(
-                stripLeadingSlash(model.installDir() + "/environment"),
-                TemplateRenderer.renderBytes("environment", vars),
-                DebEntry.MODE_FILE,
                 false));
 
         // systemd unit
