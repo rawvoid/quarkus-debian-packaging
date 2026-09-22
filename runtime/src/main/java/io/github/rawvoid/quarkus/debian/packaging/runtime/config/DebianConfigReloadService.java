@@ -96,6 +96,7 @@ public class DebianConfigReloadService {
             testSources.add(new InMemoryConfigSource(configSource.getName(), configSource.getOrdinal(), newProps));
 
             SmallRyeConfigBuilder builder = new SmallRyeConfigBuilder()
+                    .withProfiles(currentConfig.getProfiles())
                     .withSources(testSources)
                     .withValidateUnknown(false);
 
