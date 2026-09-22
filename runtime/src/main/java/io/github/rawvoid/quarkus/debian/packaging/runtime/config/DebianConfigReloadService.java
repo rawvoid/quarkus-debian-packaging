@@ -31,6 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.spi.ConfigSource;
+import org.jboss.logging.Logger;
 
 import io.smallrye.config.ConfigValidationException;
 import io.smallrye.config.SmallRyeConfig;
@@ -42,6 +43,8 @@ import io.smallrye.config.SmallRyeConfigBuilder;
  * @author rawvoid
  */
 public class DebianConfigReloadService {
+
+    private static final Logger LOG = Logger.getLogger(DebianConfigReloadService.class);
 
     public record ReloadResult(boolean success, String message, int updatedCount) {}
 
@@ -62,15 +65,18 @@ public class DebianConfigReloadService {
     public synchronized ReloadResult reload() {
         DebianExternalConfigSource configSource = DebianExternalConfigSource.getInstance();
         if (configSource == null) {
+            LOG.warn("Debian configuration reload aborted: external configuration source is not active.");
             return new ReloadResult(false, "External Debian configuration source is not active.", 0);
         }
 
         Path configFile = configSource.getConfigFile();
         if (configFile == null) {
+            LOG.warn("Debian configuration reload aborted: external configuration file path is not defined.");
             return new ReloadResult(false, "External configuration file path is not defined.", 0);
         }
 
         if (!Files.isRegularFile(configFile) || !Files.isReadable(configFile)) {
+            LOG.warnf("Debian configuration reload aborted: configuration file is not readable or does not exist: %s", configFile);
             return new ReloadResult(false, "Configuration file is not readable or does not exist: " + configFile, 0);
         }
 
@@ -79,6 +85,7 @@ public class DebianConfigReloadService {
         try {
             newProps = DebianExternalConfigSource.loadFromFile(configFile);
         } catch (Exception e) {
+            LOG.warnf(e, "Debian configuration reload aborted: syntax or IO error while reading %s", configFile);
             return new ReloadResult(false, "Syntax or IO error while reading " + configFile + ": " + e.getMessage(), 0);
         }
 
@@ -117,8 +124,11 @@ public class DebianConfigReloadService {
                     newSnapshots.put(reg, snapshot);
                 }
             } catch (ConfigValidationException e) {
-                return new ReloadResult(false, "Configuration validation failed:\n" + formatValidationErrors(e), 0);
+                String errorMsg = formatValidationErrors(e);
+                LOG.warnf("Debian configuration validation failed while reloading %s:\n%s", configFile, errorMsg);
+                return new ReloadResult(false, "Configuration validation failed:\n" + errorMsg, 0);
             } catch (Exception e) {
+                LOG.warnf(e, "Debian configuration mapping failed while reloading %s", configFile);
                 return new ReloadResult(false, "Configuration mapping failed: " + e.getMessage(), 0);
             }
         }
@@ -135,13 +145,17 @@ public class DebianConfigReloadService {
                         ? currentConfig.getConfigMapping(reg.mappingClass(), reg.prefix())
                         : currentConfig.getConfigMapping(reg.mappingClass());
                 ConfigMappingInPlacePatcher.patch(currentLive, snapshot);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.warnf(e, "Failed to patch live config mapping for class %s", reg.mappingClass().getName());
             }
         }
 
         // Phase 4: Publish CDI event
         Set<String> changedKeys = calculateChangedKeys(oldProps, newProps);
         fireReloadedEvent(configFile, newProps, changedKeys);
+
+        LOG.infof("Configuration reloaded successfully from %s: %d properties updated (%s)",
+                configFile, changedKeys.size(), changedKeys);
 
         return new ReloadResult(true, "Configuration reloaded successfully. " + changedKeys.size() + " properties updated.", changedKeys.size());
     }
@@ -178,9 +192,11 @@ public class DebianConfigReloadService {
             if (cdi != null) {
                 var event = new DebianConfigReloadedEvent(configFile, Instant.now(), props, changedKeys);
                 cdi.getBeanManager().getEvent().select(DebianConfigReloadedEvent.class).fire(event);
+                LOG.debugf("Fired DebianConfigReloadedEvent for %s", configFile);
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
             // CDI container not initialized or Arc not present
+            LOG.debugf("Could not fire DebianConfigReloadedEvent: %s", t.getMessage());
         }
     }
 
