@@ -132,4 +132,35 @@ public interface DebianPackagingConfig {
      * Default: {@code {name}_{version}_{architecture}.deb}.
      */
     Optional<String> outputName();
+
+    /**
+     * Debian configuration bridging and reload settings.
+     */
+    DebianConfigSection config();
+
+    interface DebianConfigSection {
+        /**
+         * Whether to automatically bridge external configuration from {@code /etc/${packageName}/application.properties}.
+         */
+        @WithDefault("true")
+        boolean autoBridge();
+
+        /**
+         * Reload options.
+         */
+        ReloadConfig reload();
+
+        interface ReloadConfig {
+            /**
+             * Whether to enable UNIX domain socket reload support.
+             */
+            @WithDefault("true")
+            boolean enabled();
+
+            /**
+             * Path to the control UNIX domain socket. Defaults to {@code /run/${packageName}/control.sock}.
+             */
+            Optional<String> socketPath();
+        }
+    }
 }
