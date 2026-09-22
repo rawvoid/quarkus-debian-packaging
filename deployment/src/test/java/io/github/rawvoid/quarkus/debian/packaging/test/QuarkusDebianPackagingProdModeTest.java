@@ -73,6 +73,7 @@ public class QuarkusDebianPackagingProdModeTest {
 
         assertTrue(control.get("control").contains("Package: prod-deb-app"));
         assertTrue(control.get("control").contains("Maintainer: CI <ci@example.com>"));
+        assertTrue(control.get("control").contains("Depends: systemd, python3"));
         assertTrue(control.get("control").contains("Architecture: all"));
         assertTrue(control.containsKey("postinst"));
         assertTrue(control.containsKey("conffiles"));
@@ -81,6 +82,7 @@ public class QuarkusDebianPackagingProdModeTest {
         assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/jvm.options"));
 
         assertTrue(data.keySet().stream().anyMatch(p -> p.endsWith("quarkus-run.jar")));
+        assertTrue(data.containsKey("usr/share/prod-deb-app/reload"));
         assertTrue(data.containsKey("usr/bin/prod-deb-app"));
         assertTrue(data.containsKey("usr/lib/systemd/system/prod-deb-app.service"));
         assertTrue(data.containsKey("etc/default/prod-deb-app"));

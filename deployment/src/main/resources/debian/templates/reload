@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+import os
+import socket
+import sys
+
+def main():
+    socket_file = sys.argv[1] if len(sys.argv) > 1 else "/run/${packageName}/control.sock"
+    if not os.path.exists(socket_file):
+        sys.stderr.write(f"Error: Debian control socket not found: {socket_file}. Is ${systemdServiceName} running?\n")
+        sys.exit(1)
+
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(10.0)
+            s.connect(socket_file)
+            s.sendall(b"RELOAD\n")
+            data = s.recv(4096).decode("utf-8", errors="replace")
+            if data.startswith("OK"):
+                sys.stdout.write(data)
+                sys.exit(0)
+            else:
+                sys.stderr.write(data if data else "Error: Empty response from reload server\n")
+                sys.exit(1)
+    except Exception as e:
+        sys.stderr.write(f"Error communicating with Debian control socket ({socket_file}): {e}\n")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

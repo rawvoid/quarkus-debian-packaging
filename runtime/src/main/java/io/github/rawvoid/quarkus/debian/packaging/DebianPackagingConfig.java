@@ -79,7 +79,7 @@ public interface DebianPackagingConfig {
     /**
      * Control Depends field.
      */
-    @WithDefault("systemd")
+    @WithDefault("systemd, python3")
     String depends();
 
     /**
