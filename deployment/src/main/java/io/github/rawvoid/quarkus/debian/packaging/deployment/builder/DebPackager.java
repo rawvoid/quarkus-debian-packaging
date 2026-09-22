@@ -94,6 +94,13 @@ public final class DebPackager {
                 DebEntry.MODE_EXEC,
                 false));
 
+        // Environment script
+        entries.add(DebEntry.bytes(
+                stripLeadingSlash(model.installDir() + "/environment"),
+                TemplateRenderer.renderBytes("environment", vars),
+                DebEntry.MODE_FILE,
+                false));
+
         // systemd unit
         entries.add(DebEntry.bytes(
                 stripLeadingSlash(model.systemdUnitFile()),

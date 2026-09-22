@@ -12,33 +12,14 @@ if [ "${1:-}" = "--reload" ]; then
     exec "${INSTALL_DIR}/reload" "$@"
 fi
 
-DEFAULTS_FILE="${defaultsFile}"
+if [ ! -r "${INSTALL_DIR}/environment" ]; then
+    echo "Error: Environment script not found: ${INSTALL_DIR}/environment" >&2
+    exit 1
+fi
+. "${INSTALL_DIR}/environment"
+
 JVM_OPTIONS_FILE="${jvmOptionsFile}"
 MAIN_JAR="${mainExecutable}"
-
-if [ -r "${DEFAULTS_FILE}" ]; then
-    while read -r line || [ -n "$line" ]; do
-        line="${line#export }"
-        case "$line" in
-            \#* | \;* | "" ) continue ;;
-            *=* )
-                key="${line%%=*}"
-                val="${line#*=}"
-                case "$val" in
-                    \"*\" | \'*\' )
-                        val="${val#?}"
-                        val="${val%?}"
-                        ;;
-                esac
-                export "${key}=${val}"
-                ;;
-            * )
-                echo "Error: Invalid line in ${DEFAULTS_FILE} (missing '='): '${line}'" >&2
-                exit 1
-                ;;
-        esac
-    done < "${DEFAULTS_FILE}"
-fi
 
 if [ -n "${JAVA_HOME:-}" ]; then
     PATH="${JAVA_HOME}/bin:${PATH}"

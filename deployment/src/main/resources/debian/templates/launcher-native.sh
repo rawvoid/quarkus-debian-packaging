@@ -12,32 +12,13 @@ if [ "${1:-}" = "--reload" ]; then
     exec "${INSTALL_DIR}/reload" "$@"
 fi
 
-DEFAULTS_FILE="${defaultsFile}"
-MAIN_EXECUTABLE="${mainExecutable}"
-
-if [ -r "${DEFAULTS_FILE}" ]; then
-    while read -r line || [ -n "$line" ]; do
-        line="${line#export }"
-        case "$line" in
-            \#* | \;* | "" ) continue ;;
-            *=* )
-                key="${line%%=*}"
-                val="${line#*=}"
-                case "$val" in
-                    \"*\" | \'*\' )
-                        val="${val#?}"
-                        val="${val%?}"
-                        ;;
-                esac
-                export "${key}=${val}"
-                ;;
-            * )
-                echo "Error: Invalid line in ${DEFAULTS_FILE} (missing '='): '${line}'" >&2
-                exit 1
-                ;;
-        esac
-    done < "${DEFAULTS_FILE}"
+if [ ! -r "${INSTALL_DIR}/environment" ]; then
+    echo "Error: Environment script not found: ${INSTALL_DIR}/environment" >&2
+    exit 1
 fi
+. "${INSTALL_DIR}/environment"
+
+MAIN_EXECUTABLE="${mainExecutable}"
 
 if [ ! -x "${MAIN_EXECUTABLE}" ]; then
     echo "Error: native executable not found or not executable: ${MAIN_EXECUTABLE}" >&2
