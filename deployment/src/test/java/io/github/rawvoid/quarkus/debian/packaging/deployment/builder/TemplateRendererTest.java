@@ -49,22 +49,46 @@ class TemplateRendererTest {
     @Test
     void rendersJvmLauncher() {
         String launcher = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+                "packageName", "demo",
+                "systemdServiceName", "demo.service",
                 "defaultsFile", "/etc/default/demo",
                 "jvmOptionsFile", "/etc/demo/jvm.options",
                 "mainExecutable", "/usr/share/demo/quarkus-run.jar"));
         assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
         assertTrue(launcher.contains("MAIN_JAR=\"/usr/share/demo/quarkus-run.jar\""));
         assertTrue(launcher.contains("JDK_JAVA_OPTIONS"));
+        assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
+        assertTrue(launcher.contains("SOCKET_FILE=\"/run/demo/control.sock\""));
         assertTrue(launcher.contains("exec \"${JAVA}\" -jar \"${MAIN_JAR}\" \"$@\""));
     }
 
     @Test
     void rendersNativeLauncher() {
         String launcher = TemplateRenderer.render("launcher-native.sh", Map.of(
+                "packageName", "demo",
+                "systemdServiceName", "demo.service",
                 "defaultsFile", "/etc/default/demo",
                 "mainExecutable", "/usr/share/demo/demo-runner"));
         assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
         assertTrue(launcher.contains("MAIN_EXECUTABLE=\"/usr/share/demo/demo-runner\""));
+        assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
+        assertTrue(launcher.contains("SOCKET_FILE=\"/run/demo/control.sock\""));
         assertTrue(launcher.contains("exec \"${MAIN_EXECUTABLE}\" \"$@\""));
+    }
+
+    @Test
+    void rendersUnitService() {
+        String service = TemplateRenderer.render("unit.service", Map.of(
+                "description", "Demo Service",
+                "serviceUser", "demo",
+                "serviceGroup", "demo",
+                "installDir", "/usr/share/demo",
+                "defaultsFile", "/etc/default/demo",
+                "binFile", "/usr/bin/demo",
+                "packageName", "demo"));
+        assertTrue(service.contains("ExecStart=/usr/bin/demo"));
+        assertTrue(service.contains("ExecReload=/usr/bin/demo --reload"));
+        assertTrue(service.contains("RuntimeDirectory=demo"));
+        assertTrue(service.contains("RuntimeDirectoryMode=0750"));
     }
 }

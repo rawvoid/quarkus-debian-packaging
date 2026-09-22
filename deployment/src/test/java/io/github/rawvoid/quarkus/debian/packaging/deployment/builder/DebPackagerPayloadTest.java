@@ -217,6 +217,31 @@ class DebPackagerPayloadTest {
             public Optional<String> outputName() {
                 return Optional.empty();
             }
+
+            @Override
+            public DebianConfigSection config() {
+                return new DebianConfigSection() {
+                    @Override
+                    public boolean autoBridge() {
+                        return true;
+                    }
+
+                    @Override
+                    public ReloadConfig reload() {
+                        return new ReloadConfig() {
+                            @Override
+                            public boolean enabled() {
+                                return true;
+                            }
+
+                            @Override
+                            public Optional<String> socketPath() {
+                                return Optional.empty();
+                            }
+                        };
+                    }
+                };
+            }
         };
 
         return DebianPackageModel.resolve(
