@@ -70,7 +70,7 @@ class TemplateRendererTest {
         assertTrue(launcher.contains("JDK_JAVA_OPTIONS"));
         assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
-        assertTrue(launcher.contains("export \"${line%%=*}=${line#*=}\""));
+        assertTrue(launcher.contains("export \"${key}=${val}\""));
         assertTrue(launcher.contains("exec \"${JAVA}\" -jar \"${MAIN_JAR}\" \"$@\""));
     }
 
@@ -87,7 +87,7 @@ class TemplateRendererTest {
         assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
         assertTrue(launcher.contains("if [ \"${1:-}\" = \"--reload\" ]; then"));
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
-        assertTrue(launcher.contains("export \"${line%%=*}=${line#*=}\""));
+        assertTrue(launcher.contains("export \"${key}=${val}\""));
         assertTrue(launcher.contains("exec \"${MAIN_EXECUTABLE}\" \"$@\""));
     }
 
@@ -187,8 +187,8 @@ class TemplateRendererTest {
         assertTrue(output.contains("REDIR=<foo>bar"));
         assertTrue(output.contains("PIPE=a|b"));
         assertTrue(output.contains("SEMICOLON=a;b"));
-        assertTrue(output.contains("QUOTED_SPACES=\"  spaced  \""));
-        assertTrue(output.contains("SINGLE_QUOTED='single quoted'"));
+        assertTrue(output.contains("QUOTED_SPACES=  spaced  "));
+        assertTrue(output.contains("SINGLE_QUOTED=single quoted"));
         assertTrue(output.contains("EXPORTED_VAR=exported value"));
         assertTrue(output.contains("EMPTY="));
     }

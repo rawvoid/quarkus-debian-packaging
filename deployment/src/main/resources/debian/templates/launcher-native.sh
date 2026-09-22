@@ -20,7 +20,17 @@ if [ -r "${DEFAULTS_FILE}" ]; then
         line="${line#export }"
         case "$line" in
             \#* | \;* | "" ) continue ;;
-            *=* ) export "${line%%=*}=${line#*=}" ;;
+            *=* )
+                key="${line%%=*}"
+                val="${line#*=}"
+                case "$val" in
+                    \"*\" | \'*\' )
+                        val="${val#?}"
+                        val="${val%?}"
+                        ;;
+                esac
+                export "${key}=${val}"
+                ;;
             * )
                 echo "Error: Invalid line in ${DEFAULTS_FILE} (missing '='): '${line}'" >&2
                 exit 1
