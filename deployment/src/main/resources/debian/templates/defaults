@@ -1,4 +1,4 @@
-# Runtime options consumed by systemd EnvironmentFile= for ${systemdServiceName}.
+# Runtime options for ${systemdServiceName}.
 
 # JAVA_HOME selects a specific JDK/JRE. Example: JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 # JAVA_HOME=

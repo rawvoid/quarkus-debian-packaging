@@ -85,6 +85,8 @@ public class QuarkusDebianPackagingDebIT {
                 "Expected external application.properties");
         assertTrue(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/jvm.options")),
                 "Expected jvm.options for JVM package");
+        assertTrue(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/environment")),
+                "Expected environment script in package payload");
 
         String defaults = dataFiles.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("etc/default/"))
@@ -99,6 +101,7 @@ public class QuarkusDebianPackagingDebIT {
                 .findFirst()
                 .orElseThrow();
         assertTrue(launcher.contains("exec \"${JAVA}\" -jar"));
+        assertTrue(launcher.contains(". \"${INSTALL_DIR}/environment\""));
         assertFalse(launcher.contains("[["), "Launcher must not contain unresolved codestart placeholders");
     }
 

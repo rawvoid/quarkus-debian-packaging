@@ -66,6 +66,8 @@ class DebPackagerPayloadTest {
         assertEquals(DebEntry.MODE_FILE, data.get("usr/share/uber-demo/demo-runner.jar").mode() & 0777);
         assertTrue(data.containsKey("usr/share/uber-demo/reload"));
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/uber-demo/reload").mode() & 0777);
+        assertTrue(data.containsKey("usr/share/uber-demo/environment"));
+        assertEquals(DebEntry.MODE_FILE, data.get("usr/share/uber-demo/environment").mode() & 0777);
         assertTrue(data.containsKey("etc/uber-demo/jvm.options"));
 
         String launcher = new String(data.get("usr/bin/uber-demo").content(), StandardCharsets.UTF_8);
@@ -103,6 +105,8 @@ class DebPackagerPayloadTest {
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/native-demo/native-demo-runner").mode() & 0777);
         assertTrue(data.containsKey("usr/share/native-demo/reload"));
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/native-demo/reload").mode() & 0777);
+        assertTrue(data.containsKey("usr/share/native-demo/environment"));
+        assertEquals(DebEntry.MODE_FILE, data.get("usr/share/native-demo/environment").mode() & 0777);
         assertFalse(data.containsKey("etc/native-demo/jvm.options"));
 
         String launcher = new String(data.get("usr/bin/native-demo").content(), StandardCharsets.UTF_8);
