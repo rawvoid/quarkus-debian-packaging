@@ -18,6 +18,9 @@ package io.github.rawvoid.quarkus.debian.packaging.runtime;
 
 import java.nio.file.Path;
 
+import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.config.ConfigProvider;
+
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.DebianConfigReloadService;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.socket.DebianControlSocketServer;
 import io.quarkus.runtime.ShutdownContext;
@@ -49,8 +52,24 @@ public class DebianConfigRecorder {
         }
     }
 
-    public void startControlServer(ShutdownContext shutdownContext, boolean enabled, String socketPathStr) {
-        if (!enabled || socketPathStr == null || socketPathStr.isBlank()) {
+    public void startControlServer(ShutdownContext shutdownContext, boolean defaultEnabled, String defaultSocketPathStr) {
+        Config config = ConfigProvider.getConfig();
+
+        boolean debianEnabled = config.getOptionalValue("quarkus.debian.enabled", Boolean.class).orElse(true);
+        if (!debianEnabled) {
+            return;
+        }
+
+        boolean reloadEnabled = config.getOptionalValue("quarkus.debian.config.reload.enabled", Boolean.class)
+                .orElse(defaultEnabled);
+        if (!reloadEnabled) {
+            return;
+        }
+
+        String socketPathStr = config.getOptionalValue("quarkus.debian.config.reload.socket-path", String.class)
+                .filter(s -> !s.isBlank())
+                .orElse(defaultSocketPathStr);
+        if (socketPathStr == null || socketPathStr.isBlank()) {
             return;
         }
 
