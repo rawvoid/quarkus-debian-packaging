@@ -26,7 +26,6 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.builditem.ConfigMappingBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
-import io.quarkus.runtime.annotations.ConfigPhase;
 import io.quarkus.runtime.annotations.ConfigRoot;
 
 /**
@@ -46,8 +45,7 @@ public class DebianConfigProcessor {
             List<ConfigMappingBuildItem> configMappings) {
 
         for (ConfigMappingBuildItem mapping : configMappings) {
-            ConfigRoot root = mapping.getConfigClass().getAnnotation(ConfigRoot.class);
-            if (root != null && root.phase() == ConfigPhase.BUILD_TIME) {
+            if (isExcludedFrameworkMapping(mapping)) {
                 continue;
             }
             recorder.registerMapping(mapping.getConfigClass().getName(), mapping.getPrefix());
@@ -63,5 +61,17 @@ public class DebianConfigProcessor {
                 .orElse("/run/" + packageName + "/control.sock");
 
         recorder.startControlServer(shutdownContext, reloadEnabled, socketPath);
+    }
+
+    private static boolean isExcludedFrameworkMapping(ConfigMappingBuildItem mapping) {
+        Class<?> configClass = mapping.getConfigClass();
+        if (configClass.isAnnotationPresent(ConfigRoot.class)) {
+            return true;
+        }
+        String prefix = mapping.getPrefix();
+        if (prefix != null && (prefix.equals("quarkus") || prefix.startsWith("quarkus."))) {
+            return true;
+        }
+        return configClass.getPackageName().startsWith("io.quarkus.");
     }
 }
