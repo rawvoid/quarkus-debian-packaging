@@ -9,7 +9,6 @@ User=${serviceUser}
 Group=${serviceGroup}
 
 WorkingDirectory=-${installDir}
-EnvironmentFile=-${defaultsFile}
 ExecStart=${binFile}
 ExecReload=${binFile} --reload
 RuntimeDirectory=${packageName}

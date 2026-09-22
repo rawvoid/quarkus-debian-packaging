@@ -18,34 +18,25 @@ MAIN_JAR="${mainExecutable}"
 
 if [ -r "${DEFAULTS_FILE}" ]; then
     while read -r line || [ -n "$line" ]; do
+        line="${line#export }"
         case "$line" in
             \#* | \;* | "" ) continue ;;
-            *=* ) ;;
-            * ) continue ;;
-        esac
-        key="${line%%=*}"
-        val="${line#*=}"
-        case "$key" in
-            export\ * )
-                key="${key#export}"
-                key="${key#"${key%%[![:blank:]]*}"}"
-                ;;
-        esac
-        key="${key%"${key##*[![:blank:]]}"}"
-        case "$key" in
-            "" | [0-9]* | *[!a-zA-Z0-9_]* ) continue ;;
-        esac
-        case "$val" in
-            \"*\" | \'*\' )
-                val="${val#?}"
-                val="${val%?}"
+            *=* )
+                key="${line%%=*}"
+                val="${line#*=}"
+                case "$val" in
+                    \"*\" | \'*\' )
+                        val="${val#?}"
+                        val="${val%?}"
+                        ;;
+                esac
+                export "${key}=${val}"
                 ;;
             * )
-                val="${val#"${val%%[![:blank:]]*}"}"
-                val="${val%"${val##*[![:blank:]]}"}"
+                echo "Error: Invalid line in ${DEFAULTS_FILE} (missing '='): '${line}'" >&2
+                exit 1
                 ;;
         esac
-        export "${key}=${val}"
     done < "${DEFAULTS_FILE}"
 fi
 

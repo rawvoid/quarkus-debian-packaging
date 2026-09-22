@@ -17,6 +17,8 @@
 package io.github.rawvoid.quarkus.debian.packaging.deployment.builder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -113,6 +115,7 @@ class TemplateRendererTest {
         assertTrue(service.contains("ExecReload=/usr/bin/demo --reload"));
         assertTrue(service.contains("RuntimeDirectory=demo"));
         assertTrue(service.contains("RuntimeDirectoryMode=0750"));
+        assertFalse(service.contains("EnvironmentFile"));
     }
 
     @Test
@@ -132,10 +135,6 @@ class TemplateRendererTest {
                 SINGLE_QUOTED='single quoted'
                 export EXPORTED_VAR=exported value
                 EMPTY=
-                TRIMMED=   trimmed   
-                INVALID_NO_EQUALS
-                INVALID-DASH=value
-                123INVALID=value
                 """);
 
         Path binDir = tempDir.resolve("bin");
@@ -153,7 +152,6 @@ class TemplateRendererTest {
                 echo "SINGLE_QUOTED=$SINGLE_QUOTED"
                 echo "EXPORTED_VAR=$EXPORTED_VAR"
                 echo "EMPTY=$EMPTY"
-                echo "TRIMMED=$TRIMMED"
                 """);
         setPosixExecutable(mockJava);
 
@@ -193,7 +191,6 @@ class TemplateRendererTest {
         assertTrue(output.contains("SINGLE_QUOTED=single quoted"));
         assertTrue(output.contains("EXPORTED_VAR=exported value"));
         assertTrue(output.contains("EMPTY="));
-        assertTrue(output.contains("TRIMMED=trimmed"));
     }
 
     @Test
@@ -260,6 +257,76 @@ class TemplateRendererTest {
 
         assertEquals(0, exitCode);
         assertTrue(output.contains("RELOAD_INVOKED"));
+    }
+
+    @Test
+    void jvmLauncherFailsOnMissingEquals(@TempDir Path tempDir) throws Exception {
+        Path defaultsFile = tempDir.resolve("defaults");
+        Files.writeString(defaultsFile, "DANGLING_LINE_WITHOUT_EQUALS\n");
+
+        Path binDir = tempDir.resolve("bin");
+        Files.createDirectories(binDir);
+        Path mockJava = binDir.resolve("java");
+        Files.writeString(mockJava, "#!/bin/sh\nexit 0\n");
+        setPosixExecutable(mockJava);
+
+        Path mainJar = tempDir.resolve("dummy.jar");
+        Files.writeString(mainJar, "jar-content");
+
+        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+                "packageName", "demo",
+                "installDir", tempDir.toString(),
+                "systemdServiceName", "demo.service",
+                "defaultsFile", defaultsFile.toString(),
+                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
+                "mainExecutable", mainJar.toString()));
+
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString());
+        pb.environment().put("JAVA_HOME", tempDir.toString());
+        var process = pb.start();
+        String errOutput = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exitCode = process.waitFor();
+
+        assertNotEquals(0, exitCode);
+        assertTrue(errOutput.contains("missing '='"));
+    }
+
+    @Test
+    void jvmLauncherFailsOnInvalidVariableName(@TempDir Path tempDir) throws Exception {
+        Path defaultsFile = tempDir.resolve("defaults");
+        Files.writeString(defaultsFile, "INVALID-KEY=val\n");
+
+        Path binDir = tempDir.resolve("bin");
+        Files.createDirectories(binDir);
+        Path mockJava = binDir.resolve("java");
+        Files.writeString(mockJava, "#!/bin/sh\nexit 0\n");
+        setPosixExecutable(mockJava);
+
+        Path mainJar = tempDir.resolve("dummy.jar");
+        Files.writeString(mainJar, "jar-content");
+
+        String scriptContent = TemplateRenderer.render("launcher-jvm.sh", Map.of(
+                "packageName", "demo",
+                "installDir", tempDir.toString(),
+                "systemdServiceName", "demo.service",
+                "defaultsFile", defaultsFile.toString(),
+                "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
+                "mainExecutable", mainJar.toString()));
+
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString());
+        pb.environment().put("JAVA_HOME", tempDir.toString());
+        var process = pb.start();
+        int exitCode = process.waitFor();
+
+        assertNotEquals(0, exitCode);
     }
 
     private static void setPosixExecutable(Path path) throws IOException {
