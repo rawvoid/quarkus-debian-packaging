@@ -17,11 +17,6 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-core</artifactId>
         </dependency>
-        <!-- Required so unit/dev tests and standard CDI bootstrap work with the extension present. -->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-arc</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
