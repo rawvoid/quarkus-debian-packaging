@@ -66,13 +66,17 @@ class DebPackagerPayloadTest {
         assertEquals(DebEntry.MODE_FILE, data.get("usr/share/uber-demo/demo-runner.jar").mode() & 0777);
         assertTrue(data.containsKey("usr/share/uber-demo/reload"));
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/uber-demo/reload").mode() & 0777);
-        assertTrue(data.containsKey("usr/share/uber-demo/environment"));
-        assertEquals(DebEntry.MODE_FILE, data.get("usr/share/uber-demo/environment").mode() & 0777);
+        assertTrue(data.containsKey("usr/share/uber-demo/startup"));
+        assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/uber-demo/startup").mode() & 0777);
+        assertFalse(data.containsKey("usr/share/uber-demo/environment"));
         assertTrue(data.containsKey("etc/uber-demo/jvm.options"));
 
         String launcher = new String(data.get("usr/bin/uber-demo").content(), StandardCharsets.UTF_8);
-        assertTrue(launcher.contains("exec \"${JAVA}\" -jar"));
-        assertTrue(launcher.contains("/usr/share/uber-demo/demo-runner.jar"));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
+
+        String startup = new String(data.get("usr/share/uber-demo/startup").content(), StandardCharsets.UTF_8);
+        assertTrue(startup.contains("exec \"${JAVA}\" -jar"));
+        assertTrue(startup.contains("/usr/share/uber-demo/demo-runner.jar"));
     }
 
     @Test
@@ -88,6 +92,7 @@ class DebPackagerPayloadTest {
 
         assertTrue(data.containsKey("usr/share/legacy-demo/legacy-runner.jar"));
         assertTrue(data.containsKey("usr/share/legacy-demo/lib/dep.jar"));
+        assertTrue(data.containsKey("usr/share/legacy-demo/startup"));
         assertTrue(data.containsKey("etc/legacy-demo/jvm.options"));
     }
 
@@ -105,14 +110,18 @@ class DebPackagerPayloadTest {
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/native-demo/native-demo-runner").mode() & 0777);
         assertTrue(data.containsKey("usr/share/native-demo/reload"));
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/native-demo/reload").mode() & 0777);
-        assertTrue(data.containsKey("usr/share/native-demo/environment"));
-        assertEquals(DebEntry.MODE_FILE, data.get("usr/share/native-demo/environment").mode() & 0777);
+        assertTrue(data.containsKey("usr/share/native-demo/startup"));
+        assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/native-demo/startup").mode() & 0777);
+        assertFalse(data.containsKey("usr/share/native-demo/environment"));
         assertFalse(data.containsKey("etc/native-demo/jvm.options"));
 
         String launcher = new String(data.get("usr/bin/native-demo").content(), StandardCharsets.UTF_8);
-        assertTrue(launcher.contains("exec \"${MAIN_EXECUTABLE}\"")
-                || launcher.contains("/usr/share/native-demo/native-demo-runner"));
-        assertFalse(launcher.contains("java -jar"));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
+
+        String startup = new String(data.get("usr/share/native-demo/startup").content(), StandardCharsets.UTF_8);
+        assertTrue(startup.contains("exec \"${MAIN_EXECUTABLE}\"")
+                || startup.contains("/usr/share/native-demo/native-demo-runner"));
+        assertFalse(startup.contains("java -jar"));
 
         assertTrue(control.get("control").contains("Architecture: amd64"));
         assertFalse(control.get("conffiles").contains("jvm.options"));

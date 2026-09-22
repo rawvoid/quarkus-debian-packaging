@@ -85,8 +85,10 @@ public class QuarkusDebianPackagingDebIT {
                 "Expected external application.properties");
         assertTrue(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/jvm.options")),
                 "Expected jvm.options for JVM package");
-        assertTrue(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/environment")),
-                "Expected environment script in package payload");
+        assertTrue(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/startup")),
+                "Expected startup script in package payload");
+        assertFalse(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/environment")),
+                "Did not expect environment script in package payload");
 
         String defaults = dataFiles.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("etc/default/"))
@@ -100,9 +102,15 @@ public class QuarkusDebianPackagingDebIT {
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElseThrow();
-        assertTrue(launcher.contains("exec \"${JAVA}\" -jar"));
-        assertTrue(launcher.contains(". \"${INSTALL_DIR}/environment\""));
+        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
         assertFalse(launcher.contains("[["), "Launcher must not contain unresolved codestart placeholders");
+
+        String startup = dataFiles.entrySet().stream()
+                .filter(e -> e.getKey().endsWith("/startup"))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(startup.contains("exec \"${JAVA}\" -jar"));
     }
 
     private static boolean containsPathSuffix(Map<String, String> dataFiles, String suffix) {
