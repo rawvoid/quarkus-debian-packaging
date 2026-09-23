@@ -17,6 +17,7 @@
 package io.github.rawvoid.quarkus.debian.packaging.deployment.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 
@@ -120,9 +122,29 @@ class DebianPackageModelTest {
         assertEquals("svc_group", model.serviceGroup());
     }
 
+    @Test
+    void resolvesReloadEnabledFlag() {
+        DebianPackageModel disabled = DebianPackageModel.resolve(
+                configWithName("app"),
+                reloadConfig(false),
+                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
+                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
+                payload());
+        assertFalse(disabled.reloadEnabled());
+
+        DebianPackageModel enabled = DebianPackageModel.resolve(
+                configWithName("app"),
+                reloadConfig(true),
+                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
+                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
+                payload());
+        assertTrue(enabled.reloadEnabled());
+    }
+
     private DebianPackageModel resolve(DebianPackagingConfig config, PackagePayload payload) {
         return DebianPackageModel.resolve(
                 config,
+                reloadConfig(false),
                 new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
                 new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
                 payload);
@@ -251,6 +273,20 @@ class DebianPackageModelTest {
 
             @Override
             public Optional<String> outputName() {
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static ReloadConfig reloadConfig(boolean enabled) {
+        return new ReloadConfig() {
+            @Override
+            public boolean enabled() {
+                return enabled;
+            }
+
+            @Override
+            public Optional<String> socketPath() {
                 return Optional.empty();
             }
         };

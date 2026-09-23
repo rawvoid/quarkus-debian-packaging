@@ -18,12 +18,10 @@ package io.github.rawvoid.quarkus.debian.packaging.runtime;
 
 import java.nio.file.Path;
 
-import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigCreator;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigRegistry;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.socket.ControlSocketServer;
-import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
 
@@ -36,12 +34,6 @@ import io.quarkus.runtime.annotations.Recorder;
 public class ConfigReloadRecorder {
 
     private static final ConfigReloadService RELOAD_SERVICE = new ConfigReloadService();
-
-    private final RuntimeValue<ReloadConfig> runtimeConfig;
-
-    public ConfigReloadRecorder(RuntimeValue<ReloadConfig> runtimeConfig) {
-        this.runtimeConfig = runtimeConfig;
-    }
 
     public static ConfigReloadService getReloadService() {
         return RELOAD_SERVICE;
@@ -60,13 +52,7 @@ public class ConfigReloadRecorder {
         }
     }
 
-    public void startControlServer(ShutdownContext shutdownContext, String defaultSocketPathStr) {
-        ReloadConfig config = runtimeConfig != null ? runtimeConfig.getValue() : null;
-        if (config == null || !config.enabled()) {
-            return;
-        }
-
-        String socketPathStr = config.socketPath().filter(s -> !s.isBlank()).orElse(defaultSocketPathStr);
+    public void startControlServer(ShutdownContext shutdownContext, String socketPathStr) {
         if (socketPathStr == null || socketPathStr.isBlank()) {
             return;
         }

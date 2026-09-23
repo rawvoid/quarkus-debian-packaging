@@ -28,6 +28,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
@@ -73,7 +74,7 @@ class ConfigReloadProcessorTest {
     @Test
     void testSetupConfigReloadExcludesFrameworkMappings() {
         var recordedMappings = new ArrayList<String>();
-        var recorder = new ConfigReloadRecorder(null) {
+        var recorder = new ConfigReloadRecorder() {
             @Override
             public void registerMapping(String className, String prefix) {
                 recordedMappings.add(className);
@@ -98,6 +99,7 @@ class ConfigReloadProcessorTest {
 
         var processor = new ConfigReloadProcessor();
         processor.setupConfigReload(
+                createReloadConfig(true),
                 recorder,
                 shutdownContext,
                 config,
@@ -144,6 +146,7 @@ class ConfigReloadProcessorTest {
 
         var processor = new ConfigReloadProcessor();
         processor.registerReloadableProxies(
+                createReloadConfig(true),
                 List.of(
                         businessClass,
                         appWithDashClass,
@@ -160,6 +163,61 @@ class ConfigReloadProcessorTest {
         assertEquals(2, generatedClasses.size());
         assertEquals(2, syntheticBeans.size());
         assertEquals(2, reflectiveClasses.size());
+    }
+
+    @Test
+    void testDisabledConfigReloadExitsImmediately() {
+        var generatedClasses = new ArrayList<GeneratedClassBuildItem>();
+        var syntheticBeans = new ArrayList<SyntheticBeanBuildItem>();
+        var reflectiveClasses = new ArrayList<ReflectiveClassBuildItem>();
+        var recordedMappings = new ArrayList<String>();
+
+        var recorder = new ConfigReloadRecorder() {
+            @Override
+            public void registerMapping(String className, String prefix) {
+                recordedMappings.add(className);
+            }
+        };
+
+        var businessClass = createMappingClassItem(BusinessConfig.class, "app.business");
+        var processor = new ConfigReloadProcessor();
+
+        // When reload is disabled, registerReloadableProxies must exit immediately without producing items
+        processor.registerReloadableProxies(
+                createReloadConfig(false),
+                List.of(businessClass),
+                generatedClasses::add,
+                syntheticBeans::add,
+                reflectiveClasses::add
+        );
+        assertTrue(generatedClasses.isEmpty());
+        assertTrue(syntheticBeans.isEmpty());
+        assertTrue(reflectiveClasses.isEmpty());
+
+        // When reload is disabled, setupConfigReload must exit immediately without recording
+        processor.setupConfigReload(
+                createReloadConfig(false),
+                recorder,
+                new ShutdownContextBuildItem(),
+                createTestConfig(),
+                new ApplicationInfoBuildItem(Optional.of("test-app"), Optional.of("1.0.0")),
+                List.of(new ConfigMappingBuildItem(BusinessConfig.class, "app.business"))
+        );
+        assertTrue(recordedMappings.isEmpty());
+    }
+
+    private static ReloadConfig createReloadConfig(boolean enabled) {
+        return new ReloadConfig() {
+            @Override
+            public boolean enabled() {
+                return enabled;
+            }
+
+            @Override
+            public Optional<String> socketPath() {
+                return Optional.empty();
+            }
+        };
     }
 
     private static ConfigClassBuildItem createMappingClassItem(Class<?> clazz, String prefix) {

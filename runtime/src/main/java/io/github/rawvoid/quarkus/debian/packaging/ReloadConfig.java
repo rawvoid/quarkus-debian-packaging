@@ -24,18 +24,19 @@ import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 
 /**
- * Runtime configuration for the Debian packaging control socket and reload server.
+ * Build-time configuration for the Debian packaging control socket and reload subsystem.
  *
  * @author rawvoid
  */
 @ConfigMapping(prefix = "quarkus.debian.reload")
-@ConfigRoot(phase = ConfigPhase.RUN_TIME)
+@ConfigRoot(phase = ConfigPhase.BUILD_TIME)
 public interface ReloadConfig {
 
     /**
-     * Whether to enable UNIX domain socket reload support at runtime.
+     * Whether to enable configuration hot-reload support.
+     * When false (default), no reloadable proxies or control sockets are generated.
      */
-    @WithDefault("true")
+    @WithDefault("false")
     boolean enabled();
 
     /**

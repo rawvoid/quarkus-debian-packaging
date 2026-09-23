@@ -263,6 +263,27 @@ class TemplateRendererTest {
     }
 
     @Test
+    void launcherReportsDisabledReloadWhenHelperScriptMissing(@TempDir Path tempDir) throws Exception {
+        Path defaultsFile = tempDir.resolve("defaults");
+        Files.writeString(defaultsFile, "KEY=val\n");
+
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
+
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString(), "--reload");
+        var process = pb.start();
+        String errorOutput = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exitCode = process.waitFor();
+
+        assertEquals(1, exitCode);
+        assertTrue(errorOutput.contains("Configuration hot-reload is disabled for this build"));
+        assertTrue(errorOutput.contains("quarkus.debian.reload.enabled=true"));
+    }
+
+    @Test
     void launcherHandlesVersionFastPath(@TempDir Path tempDir) throws Exception {
         String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
         Path launcherScript = tempDir.resolve("launcher.sh");
