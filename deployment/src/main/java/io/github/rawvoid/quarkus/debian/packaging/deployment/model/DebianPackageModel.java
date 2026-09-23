@@ -290,55 +290,67 @@ public record DebianPackageModel(
     }
 
     static String detectNativeArchitecture(PackagePayload payload) {
-        if (payload != null && payload.primaryPath() != null) {
-            Path binary = payload.primaryPath();
-            if (Files.isRegularFile(binary)) {
-                try (InputStream in = Files.newInputStream(binary)) {
-                    byte[] header = in.readNBytes(20);
-                    if (header.length >= 20
-                            && header[0] == 0x7f
-                            && header[1] == 'E'
-                            && header[2] == 'L'
-                            && header[3] == 'F') {
-                        boolean littleEndian = header[5] == 1;
-                        int machine = littleEndian
-                                ? (header[18] & 0xFF) | ((header[19] & 0xFF) << 8)
-                                : ((header[18] & 0xFF) << 8) | (header[19] & 0xFF);
-                        String arch = elfMachineToDebianArch(machine);
-                        if (arch != null) {
-                            return arch;
-                        }
-                    }
-                } catch (IOException ignored) {
-                    // Fall back to host architecture detection
-                }
-            }
+        if (payload == null || payload.primaryPath() == null) {
+            throw new IllegalArgumentException("Native payload path must not be null.");
         }
-        return detectHostArchitecture();
+        Path binary = payload.primaryPath();
+        if (!Files.isRegularFile(binary)) {
+            throw new IllegalArgumentException("Native binary does not exist or is not a regular file: " + binary);
+        }
+
+        byte[] header;
+        try (InputStream in = Files.newInputStream(binary)) {
+            header = in.readNBytes(20);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to read native binary header from: " + binary, e);
+        }
+
+        if (header.length < 20) {
+            throw new IllegalArgumentException(
+                    "Native binary is too short to be a valid ELF executable (< 20 bytes): " + binary);
+        }
+        if (header[0] != 0x7f || header[1] != 'E' || header[2] != 'L' || header[3] != 'F') {
+            throw new IllegalArgumentException(
+                    "Native binary is not a Linux ELF executable (magic mismatch): " + binary);
+        }
+
+        int eiClass = header[4] & 0xFF;
+        if (eiClass != 1 && eiClass != 2) {
+            throw new IllegalArgumentException("Invalid ELF class (EI_CLASS): " + eiClass);
+        }
+
+        int eiData = header[5] & 0xFF;
+        if (eiData != 1 && eiData != 2) {
+            throw new IllegalArgumentException("Invalid ELF data encoding (EI_DATA): " + eiData);
+        }
+
+        boolean littleEndian = (eiData == 1);
+        int machine = littleEndian
+                ? (header[18] & 0xFF) | ((header[19] & 0xFF) << 8)
+                : ((header[18] & 0xFF) << 8) | (header[19] & 0xFF);
+
+        return elfMachineToDebianArch(machine, eiClass, littleEndian);
     }
 
-    static String elfMachineToDebianArch(int machine) {
+    static String elfMachineToDebianArch(int machine, int eiClass, boolean littleEndian) {
         return switch (machine) {
             case 62 -> "amd64";
             case 183 -> "arm64";
             case 3 -> "i386";
-            case 21 -> "ppc64el";
-            case 22 -> "s390x";
-            case 243 -> "riscv64";
-            default -> null;
-        };
-    }
-
-    static String detectHostArchitecture() {
-        String arch = System.getProperty("os.arch", "unknown").toLowerCase(Locale.ROOT);
-        return switch (arch) {
-            case "x86_64", "amd64" -> "amd64";
-            case "aarch64", "arm64" -> "arm64";
-            case "x86", "i386", "i686" -> "i386";
-            case "ppc64le" -> "ppc64el";
-            case "s390x" -> "s390x";
-            case "riscv64" -> "riscv64";
-            default -> arch;
+            case 21 -> littleEndian ? "ppc64el" : "ppc64";
+            case 22 -> {
+                if (eiClass != 2) {
+                    throw new IllegalArgumentException("Unsupported 32-bit s390 architecture (EI_CLASS != 2).");
+                }
+                yield "s390x";
+            }
+            case 243 -> {
+                if (eiClass != 2) {
+                    throw new IllegalArgumentException("Unsupported 32-bit riscv architecture (EI_CLASS != 2).");
+                }
+                yield "riscv64";
+            }
+            default -> throw new IllegalArgumentException("Unsupported ELF machine architecture ID: " + machine);
         };
     }
 }
