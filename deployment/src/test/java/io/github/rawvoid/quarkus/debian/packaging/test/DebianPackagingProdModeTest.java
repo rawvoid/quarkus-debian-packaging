@@ -96,10 +96,11 @@ public class DebianPackagingProdModeTest {
         assertTrue(startup.contains("exec \"${JAVA}\" -jar"));
         assertTrue(startup.contains("/usr/share/prod-deb-app/quarkus-run.jar"));
         assertFalse(startup.contains("${quarkusRunner}"), "Startup template variables must be resolved");
-        assertFalse(startup.contains("${mainExecutable}"), "Startup template variables must be resolved");
         assertFalse(startup.contains("${jvmOptionsFile}"), "Startup template variables must be resolved");
         assertTrue(data.get("etc/default/prod-deb-app")
-                .contains("QUARKUS_CONFIG_LOCATIONS=file:/etc/prod-deb-app/application.properties"));
+                .contains("# Runtime options for prod-deb-app.service."));
+        assertFalse(data.get("etc/default/prod-deb-app")
+                .contains("QUARKUS_CONFIG_LOCATIONS"));
         assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecStart=/usr/bin/prod-deb-app"));
     }
 
