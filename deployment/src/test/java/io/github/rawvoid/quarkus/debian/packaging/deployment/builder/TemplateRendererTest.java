@@ -90,7 +90,7 @@ class TemplateRendererTest {
 
     @Test
     void rendersReloadScript() {
-        String reload = TemplateRenderer.render("reload", Map.of(
+        String reload = TemplateRenderer.render("reload.py", Map.of(
                 "packageName", "demo",
                 "systemdServiceName", "demo.service"));
         assertTrue(reload.contains("/run/demo/control.sock"));

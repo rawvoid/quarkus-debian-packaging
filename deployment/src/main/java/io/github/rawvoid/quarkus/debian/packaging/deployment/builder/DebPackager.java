@@ -97,7 +97,7 @@ public final class DebPackager {
         // Reload helper script
         entries.add(DebEntry.bytes(
                 stripLeadingSlash(model.installDir() + "/reload"),
-                TemplateRenderer.renderBytes("reload", vars),
+                TemplateRenderer.renderBytes("reload.py", vars),
                 DebEntry.MODE_EXEC,
                 false));
 
