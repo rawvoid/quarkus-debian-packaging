@@ -34,7 +34,7 @@ Add `quarkus-debian-packaging` to your Quarkus project `pom.xml`:
 <dependency>
     <groupId>io.github.rawvoid</groupId>
     <artifactId>quarkus-debian-packaging</artifactId>
-    <version>2.1.0-SNAPSHOT</version>
+    <version>${quarkus-debian-packaging.version}</version>
 </dependency>
 ```
 
@@ -54,15 +54,15 @@ The resulting package will be generated under `target/`:
 
 ```text
 target/
-├── my-app-1.0.0-SNAPSHOT-runner.jar
-└── my-app_1.0.0-SNAPSHOT_all.deb      # (or _amd64.deb / _arm64.deb for native)
+├── <app>-runner.jar
+└── <app>_<version>_<arch>.deb      # e.g., _all.deb (JVM) or _amd64.deb / _arm64.deb (Native)
 ```
 
 ### 3. Install and Run on Debian / Ubuntu
 
 ```bash
 # Install the package
-sudo dpkg -i target/my-app_1.0.0-SNAPSHOT_all.deb
+sudo dpkg -i target/<app>_<version>_<arch>.deb
 
 # Verify systemd service status
 sudo systemctl status my-app
