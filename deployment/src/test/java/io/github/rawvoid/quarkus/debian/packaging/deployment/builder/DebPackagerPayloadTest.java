@@ -244,6 +244,11 @@ class DebPackagerPayloadTest {
                     }
 
                     @Override
+                    public Optional<String> filePath() {
+                        return Optional.empty();
+                    }
+
+                    @Override
                     public ReloadConfig reload() {
                         return new ReloadConfig() {
                             @Override

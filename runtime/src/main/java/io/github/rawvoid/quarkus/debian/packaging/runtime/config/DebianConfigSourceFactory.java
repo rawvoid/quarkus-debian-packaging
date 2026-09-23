@@ -17,21 +17,27 @@
 package io.github.rawvoid.quarkus.debian.packaging.runtime.config;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.OptionalInt;
 
 import org.eclipse.microprofile.config.spi.ConfigSource;
 
+import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.smallrye.config.ConfigSourceContext;
-import io.smallrye.config.ConfigSourceFactory;
+import io.smallrye.config.ConfigSourceFactory.ConfigurableConfigSourceFactory;
 import io.smallrye.config.ConfigValue;
+import io.smallrye.config.SmallRyeConfig;
+import io.smallrye.config.SmallRyeConfigBuilder;
 
 /**
- * Discovers and registers {@link DebianExternalConfigSource} at application bootstrap.
+ * Discovers and registers {@link DebianExternalConfigSource} at application bootstrap
+ * using typed {@link DebianPackagingConfig} mapping.
  *
  * @author rawvoid
  */
-public class DebianConfigSourceFactory implements ConfigSourceFactory {
+public class DebianConfigSourceFactory implements ConfigurableConfigSourceFactory<DebianPackagingConfig> {
 
     @Override
     public OptionalInt getPriority() {
@@ -40,33 +46,38 @@ public class DebianConfigSourceFactory implements ConfigSourceFactory {
 
     @Override
     public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context) {
-        ConfigValue debianEnabled = context.getValue("quarkus.debian.enabled");
-        if (debianEnabled != null && "false".equalsIgnoreCase(debianEnabled.getValue())) {
+        List<String> profiles = safeGetProfiles(context);
+        List<ConfigSource> sources = safeGetConfigSources(context);
+
+        SmallRyeConfig config = new SmallRyeConfigBuilder()
+                .withProfiles(profiles)
+                .withSources(new ConfigSourceContext.ConfigSourceContextConfigSource(context))
+                .withSources(sources)
+                .withMapping(DebianPackagingConfig.class)
+                .build();
+
+        DebianPackagingConfig mapping = config.getConfigMapping(DebianPackagingConfig.class);
+        return getConfigSources(context, mapping);
+    }
+
+    @Override
+    public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context, DebianPackagingConfig config) {
+        if (!config.enabled() || !config.config().autoBridge()) {
             return Collections.emptyList();
         }
 
-        ConfigValue autoBridge = context.getValue("quarkus.debian.config.auto-bridge");
-        if (autoBridge != null && "false".equalsIgnoreCase(autoBridge.getValue())) {
-            return Collections.emptyList();
-        }
+        String packageName = config.name().filter(s -> !s.isBlank())
+                .orElseGet(() -> getOptionalValue(context, "quarkus.application.name"));
 
-        String packageName = getOptionalValue(context, "quarkus.debian.name");
-        if (packageName == null || packageName.isBlank()) {
-            packageName = getOptionalValue(context, "quarkus.application.name");
-        }
-
-        // Allow explicit override of the external config file path (e.g. for testing or custom paths)
-        String customFilePath = getOptionalValue(context, "quarkus.debian.config.file-path");
         Path configFilePath;
-        if (customFilePath != null && !customFilePath.isBlank()) {
-            configFilePath = Path.of(customFilePath);
+        if (config.config().filePath().filter(s -> !s.isBlank()).isPresent()) {
+            configFilePath = Path.of(config.config().filePath().get());
         } else {
             if (packageName == null || packageName.isBlank()) {
                 return Collections.emptyList();
             }
-            String configDir = getOptionalValue(context, "quarkus.debian.config-dir");
-            if (configDir != null && !configDir.isBlank()) {
-                configFilePath = Path.of(configDir, "application.properties");
+            if (config.configDir().filter(s -> !s.isBlank()).isPresent()) {
+                configFilePath = Path.of(config.configDir().get(), "application.properties");
             } else {
                 configFilePath = Path.of("/etc", packageName, "application.properties");
             }
@@ -75,8 +86,26 @@ public class DebianConfigSourceFactory implements ConfigSourceFactory {
         return Collections.singletonList(new DebianExternalConfigSource(configFilePath));
     }
 
+    private static List<String> safeGetProfiles(ConfigSourceContext context) {
+        try {
+            List<String> profiles = new ArrayList<>(context.getProfiles());
+            Collections.reverse(profiles);
+            return profiles;
+        } catch (UnsupportedOperationException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private static List<ConfigSource> safeGetConfigSources(ConfigSourceContext context) {
+        try {
+            return context.getConfigSources();
+        } catch (UnsupportedOperationException e) {
+            return Collections.emptyList();
+        }
+    }
+
     private static String getOptionalValue(ConfigSourceContext context, String name) {
         ConfigValue val = context.getValue(name);
-        return (val != null && val.getValue() != null) ? val.getValue() : null;
+        return (val != null && val.getValue() != null && !val.getValue().isBlank()) ? val.getValue() : null;
     }
 }
