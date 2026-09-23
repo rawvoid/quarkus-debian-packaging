@@ -87,6 +87,13 @@ class ConfigProxyGeneratorTest {
         assertTrue(SampleServiceConfig.class.isAssignableFrom(proxyClass));
 
         SampleServiceConfig proxy = (SampleServiceConfig) proxyClass.getDeclaredConstructor().newInstance();
+        SampleServiceConfig secondProxy = (SampleServiceConfig) proxyClass.getDeclaredConstructor().newInstance();
+
+        // Uninitialized state equality
+        assertEquals(proxy, proxy);
+        assertEquals(proxy, secondProxy);
+        assertNotEquals(proxy, null);
+        assertNotEquals(proxy, "unrelated");
 
         // Initial snapshot
         var initial = new SampleServiceConfigImpl("127.0.0.1", 8080, true);
@@ -98,6 +105,13 @@ class ConfigProxyGeneratorTest {
         assertEquals(initial.toString(), proxy.toString());
         assertEquals(initial.hashCode(), proxy.hashCode());
 
+        // Equals contract with initial snapshot
+        assertEquals(proxy, proxy);
+        assertEquals(proxy, secondProxy);
+        assertEquals(proxy, initial);
+        assertNotEquals(proxy, null);
+        assertNotEquals(proxy, "unrelated");
+
         // Swap to updated snapshot
         var updated = new SampleServiceConfigImpl("10.0.0.1", 9090, false);
         ReloadableConfigRegistry.swap(SampleServiceConfig.class, "service", updated);
@@ -107,5 +121,11 @@ class ConfigProxyGeneratorTest {
         assertEquals(false, proxy.active());
         assertEquals(updated.toString(), proxy.toString());
         assertEquals(updated.hashCode(), proxy.hashCode());
+
+        // Equals contract with updated snapshot
+        assertEquals(proxy, proxy);
+        assertEquals(proxy, secondProxy);
+        assertEquals(proxy, updated);
+        assertNotEquals(proxy, initial);
     }
 }
