@@ -84,6 +84,20 @@ class DebianPackageModelTest {
     }
 
     @Test
+    void rejectsRootPath() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> resolve(configWithInstallDir("myapp", "/"), payload()));
+        assertTrue(error.getMessage().contains("cannot be the filesystem root"));
+    }
+
+    @Test
+    void rejectsPathTraversal() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> resolve(configWithInstallDir("myapp", "/usr/share/../etc"), payload()));
+        assertTrue(error.getMessage().contains("forbidden directory traversal"));
+    }
+
+    @Test
     void derivesUnixAccountFromPackageNameWithDotsAndPlus() {
         assertEquals("my-app-1", DebianPackageModel.deriveUnixAccountName("my.app+1"));
     }
