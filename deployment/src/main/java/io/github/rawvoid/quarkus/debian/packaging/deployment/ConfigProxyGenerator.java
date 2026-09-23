@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigRegistry;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.builditem.GeneratedClassBuildItem;
-import io.quarkus.gizmo.AssignableResultHandle;
 import io.quarkus.gizmo.BranchResult;
 import io.quarkus.gizmo.BytecodeCreator;
 import io.quarkus.gizmo.ClassCreator;
@@ -141,10 +140,7 @@ public final class ConfigProxyGenerator {
             );
             BranchResult hcBranch = hc.ifNull(hcTarget);
             BytecodeCreator hcNull = hcBranch.trueBranch();
-            hcNull.returnValue(hcNull.invokeStaticMethod(
-                    MethodDescriptor.ofMethod(System.class, "identityHashCode", int.class, Object.class),
-                    hcNull.getThis()
-            ));
+            hcNull.returnValue(hcNull.load(0));
             BytecodeCreator hcNotNull = hcBranch.falseBranch();
             hcNotNull.returnValue(hcNotNull.invokeVirtualMethod(
                     MethodDescriptor.ofMethod(Object.class, "hashCode", int.class),
@@ -159,42 +155,27 @@ public final class ConfigProxyGenerator {
             BranchResult sameRef = eq.ifReferencesEqual(eq.getThis(), other);
             sameRef.trueBranch().returnValue(sameRef.trueBranch().load(true));
 
-            // 2. Null check: if (other == null) return false;
+            // 2. Type check: if (!(other instanceof proxyClassName)) return false;
             BytecodeCreator notSame = sameRef.falseBranch();
-            BranchResult isNull = notSame.ifNull(other);
-            isNull.trueBranch().returnValue(isNull.trueBranch().load(false));
+            BranchResult isProxy = notSame.ifTrue(notSame.instanceOf(other, proxyClassName));
+            isProxy.falseBranch().returnValue(isProxy.falseBranch().load(false));
 
-            // 3. Resolve target
-            BytecodeCreator notNull = isNull.falseBranch();
-            ResultHandle eqHolder = notNull.readInstanceField(holderField.getFieldDescriptor(), notNull.getThis());
-            ResultHandle myTarget = notNull.invokeVirtualMethod(
+            // 3. Extract snapshots and compare via Objects.equals(myTarget, otherTarget)
+            BytecodeCreator proxyBranch = isProxy.trueBranch();
+            ResultHandle eqHolder = proxyBranch.readInstanceField(holderField.getFieldDescriptor(), proxyBranch.getThis());
+            ResultHandle myTarget = proxyBranch.invokeVirtualMethod(
                     MethodDescriptor.ofMethod(AtomicReference.class, "get", Object.class),
                     eqHolder
             );
-
-            // Unwrap other if it is another instance of proxyClassName
-            AssignableResultHandle otherTarget = notNull.createVariable(Object.class);
-            notNull.assign(otherTarget, other);
-            BranchResult isProxy = notNull.ifTrue(notNull.instanceOf(other, proxyClassName));
-            BytecodeCreator proxyBranch = isProxy.trueBranch();
             ResultHandle castOther = proxyBranch.checkCast(other, proxyClassName);
             ResultHandle otherHolder = proxyBranch.readInstanceField(holderField.getFieldDescriptor(), castOther);
-            ResultHandle unwrapped = proxyBranch.invokeVirtualMethod(
+            ResultHandle otherTarget = proxyBranch.invokeVirtualMethod(
                     MethodDescriptor.ofMethod(AtomicReference.class, "get", Object.class),
                     otherHolder
             );
-            proxyBranch.assign(otherTarget, unwrapped);
 
-            // Compare myTarget and otherTarget
-            BranchResult myNull = notNull.ifNull(myTarget);
-            BytecodeCreator myNullBranch = myNull.trueBranch();
-            BranchResult otherNull = myNullBranch.ifNull(otherTarget);
-            otherNull.trueBranch().returnValue(otherNull.trueBranch().load(true));
-            otherNull.falseBranch().returnValue(otherNull.falseBranch().load(false));
-
-            BytecodeCreator myNotNullBranch = myNull.falseBranch();
-            myNotNullBranch.returnValue(myNotNullBranch.invokeVirtualMethod(
-                    MethodDescriptor.ofMethod(Object.class, "equals", boolean.class, Object.class),
+            proxyBranch.returnValue(proxyBranch.invokeStaticMethod(
+                    MethodDescriptor.ofMethod(Objects.class, "equals", boolean.class, Object.class, Object.class),
                     myTarget,
                     otherTarget
             ));
