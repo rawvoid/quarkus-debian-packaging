@@ -17,6 +17,7 @@
 package io.github.rawvoid.quarkus.debian.packaging.runtime.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,37 +65,67 @@ class DebianExternalConfigSourceTest {
         var factory = new DebianConfigSourceFactory();
 
         // 1. When quarkus.debian.enabled = false
-        var disabledContext = new io.smallrye.config.ConfigSourceContext() {
-            @Override
-            public io.smallrye.config.ConfigValue getValue(String name) {
-                if ("quarkus.debian.enabled".equals(name)) {
-                    return io.smallrye.config.ConfigValue.builder().withName(name).withValue("false").build();
-                }
-                return null;
-            }
-
-            @Override
-            public java.util.Iterator<String> iterateNames() {
-                return java.util.Collections.emptyIterator();
-            }
-        };
-        org.junit.jupiter.api.Assertions.assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
+        var disabledContext = createContext(Map.of("quarkus.debian.enabled", "false"));
+        assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
 
         // 2. When auto-bridge = false
-        var noBridgeContext = new io.smallrye.config.ConfigSourceContext() {
+        var noBridgeContext = createContext(Map.of("quarkus.debian.config.auto-bridge", "false"));
+        assertFalse(factory.getConfigSources(noBridgeContext).iterator().hasNext());
+    }
+
+    @Test
+    void testFactoryResolvesConfigFilePath() {
+        var factory = new DebianConfigSourceFactory();
+
+        // 1. Explicit debian package name
+        var nameContext = createContext(Map.of("quarkus.debian.name", "my-app"));
+        var sources = factory.getConfigSources(nameContext).iterator();
+        assertTrue(sources.hasNext());
+        var source = (DebianExternalConfigSource) sources.next();
+        assertEquals(Path.of("/etc/my-app/application.properties"), source.getConfigFile());
+
+        // 2. Fallback to quarkus.application.name
+        var fallbackContext = createContext(Map.of("quarkus.application.name", "my-fallback-app"));
+        sources = factory.getConfigSources(fallbackContext).iterator();
+        assertTrue(sources.hasNext());
+        source = (DebianExternalConfigSource) sources.next();
+        assertEquals(Path.of("/etc/my-fallback-app/application.properties"), source.getConfigFile());
+
+        // 3. Custom file path override
+        var customFileContext = createContext(Map.of(
+                "quarkus.debian.name", "my-app",
+                "quarkus.debian.config.file-path", "/opt/custom/config.properties"));
+        sources = factory.getConfigSources(customFileContext).iterator();
+        assertTrue(sources.hasNext());
+        source = (DebianExternalConfigSource) sources.next();
+        assertEquals(Path.of("/opt/custom/config.properties"), source.getConfigFile());
+
+        // 4. Custom config directory
+        var customDirContext = createContext(Map.of(
+                "quarkus.debian.name", "my-app",
+                "quarkus.debian.config-dir", "/var/etc/my-app"));
+        sources = factory.getConfigSources(customDirContext).iterator();
+        assertTrue(sources.hasNext());
+        source = (DebianExternalConfigSource) sources.next();
+        assertEquals(Path.of("/var/etc/my-app/application.properties"), source.getConfigFile());
+
+        // 5. Missing package name and app name
+        var emptyContext = createContext(Map.of());
+        assertFalse(factory.getConfigSources(emptyContext).iterator().hasNext());
+    }
+
+    private static io.smallrye.config.ConfigSourceContext createContext(Map<String, String> properties) {
+        return new io.smallrye.config.ConfigSourceContext() {
             @Override
             public io.smallrye.config.ConfigValue getValue(String name) {
-                if ("quarkus.debian.config.auto-bridge".equals(name)) {
-                    return io.smallrye.config.ConfigValue.builder().withName(name).withValue("false").build();
-                }
-                return null;
+                String val = properties.get(name);
+                return val != null ? io.smallrye.config.ConfigValue.builder().withName(name).withValue(val).build() : null;
             }
 
             @Override
             public java.util.Iterator<String> iterateNames() {
-                return java.util.Collections.emptyIterator();
+                return properties.keySet().iterator();
             }
         };
-        org.junit.jupiter.api.Assertions.assertFalse(factory.getConfigSources(noBridgeContext).iterator().hasNext());
     }
 }

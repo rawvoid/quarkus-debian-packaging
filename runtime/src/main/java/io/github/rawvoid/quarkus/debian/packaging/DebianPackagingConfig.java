@@ -146,6 +146,11 @@ public interface DebianPackagingConfig {
         boolean autoBridge();
 
         /**
+         * Optional override path to the external configuration file.
+         */
+        Optional<String> filePath();
+
+        /**
          * Reload options.
          */
         ReloadConfig reload();
