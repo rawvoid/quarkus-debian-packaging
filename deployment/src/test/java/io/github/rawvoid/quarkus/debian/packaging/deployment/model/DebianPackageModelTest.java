@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Properties;
@@ -187,6 +189,77 @@ class DebianPackageModelTest {
         assertEquals("/var/run/custom.sock", modelCustom.templateVariables().get("socketPath"));
     }
 
+    @Test
+    void resolvesDynamicDependsForJvmAndNativeWithAndWithoutReload() {
+        PackagePayload jvmPayload = PackagePayload.uberJar(Path.of("app-runner.jar"));
+        PackagePayload nativePayload = PackagePayload.nativeImage(Path.of("app-runner"));
+
+        assertEquals(
+                "systemd, default-jre-headless | java-runtime-headless",
+                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(false), jvmPayload));
+        assertEquals(
+                "systemd, default-jre-headless | java-runtime-headless, python3",
+                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(true), jvmPayload));
+        assertEquals(
+                "systemd",
+                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(false), nativePayload));
+        assertEquals(
+                "systemd, python3",
+                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(true), nativePayload));
+    }
+
+    @Test
+    void resolvesDynamicDependsWithCustomAndDeduplication() {
+        PackagePayload jvmPayload = PackagePayload.uberJar(Path.of("app-runner.jar"));
+        DebianPackagingConfig config = configWithDepends("app", "curl, python3, , libssl3, systemd");
+
+        assertEquals(
+                "systemd, default-jre-headless | java-runtime-headless, curl, python3, libssl3",
+                DebianPackageModel.resolveDepends(config, reloadConfig(false), jvmPayload));
+    }
+
+    @Test
+    void detectsNativeArchitectureFromElfBinary() throws IOException {
+        Path binary = tempDir.resolve("native-app");
+
+        byte[] amd64Elf = createElfHeader(62, true);
+        Files.write(binary, amd64Elf);
+        assertEquals("amd64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        byte[] arm64Elf = createElfHeader(183, true);
+        Files.write(binary, arm64Elf);
+        assertEquals("arm64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        byte[] riscv64Elf = createElfHeader(243, true);
+        Files.write(binary, riscv64Elf);
+        assertEquals("riscv64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Files.writeString(binary, "not an elf binary");
+        assertEquals(DebianPackageModel.detectHostArchitecture(), DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Path missing = tempDir.resolve("missing-binary");
+        assertEquals(DebianPackageModel.detectHostArchitecture(), DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(missing)));
+    }
+
+    private static byte[] createElfHeader(int machine, boolean littleEndian) {
+        byte[] header = new byte[20];
+        header[0] = 0x7f;
+        header[1] = 'E';
+        header[2] = 'L';
+        header[3] = 'F';
+        header[4] = 2;
+        header[5] = (byte) (littleEndian ? 1 : 2);
+        header[6] = 1;
+        if (littleEndian) {
+            header[18] = (byte) (machine & 0xFF);
+            header[19] = (byte) ((machine >> 8) & 0xFF);
+        } else {
+            header[18] = (byte) ((machine >> 8) & 0xFF);
+            header[19] = (byte) (machine & 0xFF);
+        }
+        return header;
+    }
+
     private DebianPackageModel resolve(DebianPackagingConfig config, PackagePayload payload) {
         return DebianPackageModel.resolve(
                 config,
@@ -202,6 +275,10 @@ class DebianPackageModelTest {
 
     private static DebianPackagingConfig configWithName(String name) {
         return config(name, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private static DebianPackagingConfig configWithDepends(String name, String depends) {
+        return config(name, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(depends));
     }
 
     private static DebianPackagingConfig configWithInstallDir(String name, String installDir) {
@@ -221,6 +298,15 @@ class DebianPackageModelTest {
             Optional<String> serviceUser,
             Optional<String> serviceGroup,
             Optional<String> installDir) {
+        return config(name, serviceUser, serviceGroup, installDir, Optional.empty());
+    }
+
+    private static DebianPackagingConfig config(
+            String name,
+            Optional<String> serviceUser,
+            Optional<String> serviceGroup,
+            Optional<String> installDir,
+            Optional<String> depends) {
         return new DebianPackagingConfig() {
             @Override
             public boolean enabled() {
@@ -263,8 +349,8 @@ class DebianPackageModelTest {
             }
 
             @Override
-            public String depends() {
-                return "systemd";
+            public Optional<String> depends() {
+                return depends;
             }
 
             @Override

@@ -267,8 +267,8 @@ class ConfigReloadProcessorTest {
             }
 
             @Override
-            public String depends() {
-                return "systemd";
+            public Optional<String> depends() {
+                return Optional.empty();
             }
 
             @Override

@@ -16,11 +16,16 @@
 
 package io.github.rawvoid.quarkus.debian.packaging.deployment.model;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
@@ -110,7 +115,8 @@ public record DebianPackageModel(
         }
 
         String description = config.description().orElse(packageName + " service");
-        String architecture = config.architecture().orElseGet(() -> payload.isNative() ? detectNativeArchitecture() : "all");
+        String architecture = config.architecture().orElseGet(() -> payload.isNative() ? detectNativeArchitecture(payload) : "all");
+        String depends = resolveDepends(config, reloadConfig, payload);
 
         String installDir = normalizeAbsolutePath(
                 config.installDir().orElse(DEFAULT_INSTALL_PREFIX + packageName));
@@ -153,7 +159,7 @@ public record DebianPackageModel(
                 config.section(),
                 config.priority(),
                 architecture,
-                config.depends(),
+                depends,
                 installDir,
                 configDir,
                 dataDir,
@@ -279,7 +285,70 @@ public record DebianPackageModel(
         return account;
     }
 
-    private static String detectNativeArchitecture() {
+    static String resolveDepends(
+            DebianPackagingConfig config,
+            ReloadConfig reloadConfig,
+            PackagePayload payload) {
+        Set<String> deps = new LinkedHashSet<>();
+        deps.add("systemd");
+        if (!payload.isNative()) {
+            deps.add("default-jre-headless | java-runtime-headless");
+        }
+        if (reloadConfig.enabled()) {
+            deps.add("python3");
+        }
+        config.depends().ifPresent(custom -> {
+            for (String dep : custom.split(",")) {
+                String trimmed = dep.trim();
+                if (!trimmed.isEmpty()) {
+                    deps.add(trimmed);
+                }
+            }
+        });
+        return String.join(", ", deps);
+    }
+
+    static String detectNativeArchitecture(PackagePayload payload) {
+        if (payload != null && payload.primaryPath() != null) {
+            Path binary = payload.primaryPath();
+            if (Files.isRegularFile(binary)) {
+                try (InputStream in = Files.newInputStream(binary)) {
+                    byte[] header = in.readNBytes(20);
+                    if (header.length >= 20
+                            && header[0] == 0x7f
+                            && header[1] == 'E'
+                            && header[2] == 'L'
+                            && header[3] == 'F') {
+                        boolean littleEndian = header[5] == 1;
+                        int machine = littleEndian
+                                ? (header[18] & 0xFF) | ((header[19] & 0xFF) << 8)
+                                : ((header[18] & 0xFF) << 8) | (header[19] & 0xFF);
+                        String arch = elfMachineToDebianArch(machine);
+                        if (arch != null) {
+                            return arch;
+                        }
+                    }
+                } catch (IOException ignored) {
+                    // Fall back to host architecture detection
+                }
+            }
+        }
+        return detectHostArchitecture();
+    }
+
+    static String elfMachineToDebianArch(int machine) {
+        return switch (machine) {
+            case 62 -> "amd64";
+            case 183 -> "arm64";
+            case 3 -> "i386";
+            case 21 -> "ppc64el";
+            case 22 -> "s390x";
+            case 243 -> "riscv64";
+            default -> null;
+        };
+    }
+
+    static String detectHostArchitecture() {
         String arch = System.getProperty("os.arch", "unknown").toLowerCase(Locale.ROOT);
         return switch (arch) {
             case "x86_64", "amd64" -> "amd64";
