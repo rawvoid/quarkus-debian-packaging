@@ -251,32 +251,75 @@ class DebianPackageModelTest {
     void detectsNativeArchitectureFromElfBinary() throws IOException {
         Path binary = tempDir.resolve("native-app");
 
-        byte[] amd64Elf = createElfHeader(62, true);
-        Files.write(binary, amd64Elf);
+        Files.write(binary, createElfHeader(62, true, 2));
         assertEquals("amd64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
 
-        byte[] arm64Elf = createElfHeader(183, true);
-        Files.write(binary, arm64Elf);
+        Files.write(binary, createElfHeader(183, true, 2));
         assertEquals("arm64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
 
-        byte[] riscv64Elf = createElfHeader(243, true);
-        Files.write(binary, riscv64Elf);
+        Files.write(binary, createElfHeader(3, true, 1));
+        assertEquals("i386", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Files.write(binary, createElfHeader(21, true, 2));
+        assertEquals("ppc64el", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Files.write(binary, createElfHeader(21, false, 2));
+        assertEquals("ppc64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Files.write(binary, createElfHeader(22, false, 2));
+        assertEquals("s390x", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Files.write(binary, createElfHeader(243, true, 2));
         assertEquals("riscv64", DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
-
-        Files.writeString(binary, "not an elf binary");
-        assertEquals(DebianPackageModel.detectHostArchitecture(), DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
-
-        Path missing = tempDir.resolve("missing-binary");
-        assertEquals(DebianPackageModel.detectHostArchitecture(), DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(missing)));
     }
 
-    private static byte[] createElfHeader(int machine, boolean littleEndian) {
+    @Test
+    void rejectsInvalidNativeElfBinary() throws IOException {
+        Path binary = tempDir.resolve("invalid-app");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(null));
+
+        Path missing = tempDir.resolve("missing-binary");
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(missing)));
+
+        Files.write(binary, new byte[] { 0x7f, 'E', 'L' });
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        Files.writeString(binary, "not an elf binary file!!");
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        byte[] invalidClass = createElfHeader(62, true, 0);
+        Files.write(binary, invalidClass);
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        byte[] s390_32 = createElfHeader(22, false, 1);
+        Files.write(binary, s390_32);
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        byte[] riscv_32 = createElfHeader(243, true, 1);
+        Files.write(binary, riscv_32);
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+
+        byte[] unknownMachine = createElfHeader(999, true, 2);
+        Files.write(binary, unknownMachine);
+        assertThrows(IllegalArgumentException.class,
+                () -> DebianPackageModel.detectNativeArchitecture(PackagePayload.nativeImage(binary)));
+    }
+
+    private static byte[] createElfHeader(int machine, boolean littleEndian, int eiClass) {
         byte[] header = new byte[20];
         header[0] = 0x7f;
         header[1] = 'E';
         header[2] = 'L';
         header[3] = 'F';
-        header[4] = 2;
+        header[4] = (byte) eiClass;
         header[5] = (byte) (littleEndian ? 1 : 2);
         header[6] = 1;
         if (littleEndian) {
