@@ -20,7 +20,6 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc-deployment</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.github.rawvoid</groupId>

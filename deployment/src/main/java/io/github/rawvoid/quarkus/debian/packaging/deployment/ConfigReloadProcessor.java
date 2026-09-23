@@ -20,13 +20,21 @@ import java.util.List;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigCreator;
+import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
+import io.quarkus.arc.processor.BuiltinScope;
+import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
+import io.quarkus.deployment.builditem.ConfigClassBuildItem;
 import io.quarkus.deployment.builditem.ConfigMappingBuildItem;
+import io.quarkus.deployment.builditem.GeneratedClassBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.runtime.annotations.ConfigRoot;
+import org.jboss.jandex.DotName;
 
 /**
  * Deployment processor that registers config mappings and initializes runtime reload server.
@@ -41,6 +49,41 @@ public class ConfigReloadProcessor {
     private static final String QUARKUS_PREFIX = "quarkus";
     private static final String QUARKUS_PREFIX_DOT = "quarkus.";
     private static final String QUARKUS_PACKAGE_PREFIX = "io.quarkus.";
+
+    @BuildStep(onlyIf = DebianEnabled.class)
+    public void registerReloadableProxies(
+            List<ConfigClassBuildItem> configClasses,
+            BuildProducer<GeneratedClassBuildItem> generatedClasses,
+            BuildProducer<SyntheticBeanBuildItem> syntheticBeans,
+            BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
+
+        for (ConfigClassBuildItem configClass : configClasses) {
+            if (!configClass.isMapping()) {
+                continue;
+            }
+            Class<?> mappingClass = configClass.getConfigClass();
+            String prefix = configClass.getPrefix();
+            if (isExcludedFrameworkClass(mappingClass, prefix)) {
+                continue;
+            }
+
+            String proxyClassName = ConfigProxyGenerator.generate(mappingClass, prefix, generatedClasses);
+
+            syntheticBeans.produce(SyntheticBeanBuildItem.configure(DotName.createSimple(mappingClass.getName()))
+                    .identifier(mappingClass.getName() + "_reloadable_proxy")
+                    .scope(BuiltinScope.SINGLETON.getInfo())
+                    .alternative(true)
+                    .priority(1000)
+                    .creator(ReloadableConfigCreator.class)
+                    .param("proxyClassName", proxyClassName)
+                    .param("mappingClassName", mappingClass.getName())
+                    .param("prefix", prefix != null ? prefix : "")
+                    .unremovable()
+                    .done());
+
+            reflectiveClasses.produce(ReflectiveClassBuildItem.builder(proxyClassName).constructors().build());
+        }
+    }
 
     @BuildStep(onlyIf = DebianEnabled.class)
     @Record(ExecutionTime.RUNTIME_INIT)
@@ -68,15 +111,17 @@ public class ConfigReloadProcessor {
         recorder.startControlServer(shutdownContext, defaultSocketPath);
     }
 
-    private static boolean isExcludedFrameworkMapping(ConfigMappingBuildItem mapping) {
-        Class<?> configClass = mapping.getConfigClass();
+    private static boolean isExcludedFrameworkClass(Class<?> configClass, String prefix) {
         if (configClass.isAnnotationPresent(ConfigRoot.class)) {
             return true;
         }
-        String prefix = mapping.getPrefix();
         if (prefix != null && (prefix.equals(QUARKUS_PREFIX) || prefix.startsWith(QUARKUS_PREFIX_DOT))) {
             return true;
         }
         return configClass.getPackageName().startsWith(QUARKUS_PACKAGE_PREFIX);
+    }
+
+    private static boolean isExcludedFrameworkMapping(ConfigMappingBuildItem mapping) {
+        return isExcludedFrameworkClass(mapping.getConfigClass(), mapping.getPrefix());
     }
 }

@@ -40,7 +40,7 @@ import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
 
 /**
- * Coordinates configuration validation, snapshot generation, and in-place hot patching.
+ * Coordinates configuration validation, candidate snapshot generation, and atomic snapshot swapping.
  *
  * @author rawvoid
  */
@@ -138,21 +138,14 @@ public class ConfigReloadService {
             }
         }
 
-        // Phase 3: Validation passed - commit properties and patch live instances
+        // Phase 3: Validation passed - commit properties and swap active snapshots atomically
         Map<String, String> oldProps = configSource.getProperties();
         configSource.commit(newProps);
 
         for (Map.Entry<RegisteredMapping, Object> entry : newSnapshots.entrySet()) {
             RegisteredMapping reg = entry.getKey();
             Object snapshot = entry.getValue();
-            try {
-                Object currentLive = (reg.prefix() != null && !reg.prefix().isEmpty())
-                        ? currentConfig.getConfigMapping(reg.mappingClass(), reg.prefix())
-                        : currentConfig.getConfigMapping(reg.mappingClass());
-                ConfigMappingInPlacePatcher.patch(currentLive, snapshot);
-            } catch (Exception e) {
-                LOG.warnf(e, "Failed to patch live config mapping for class %s", reg.mappingClass().getName());
-            }
+            ReloadableConfigRegistry.swap(reg.mappingClass(), reg.prefix(), snapshot);
         }
 
         // Phase 4: Publish CDI event
