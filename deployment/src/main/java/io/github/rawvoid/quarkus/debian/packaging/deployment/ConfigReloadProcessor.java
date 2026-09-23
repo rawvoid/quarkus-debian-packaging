@@ -20,8 +20,8 @@ import java.util.List;
 
 import org.jboss.jandex.DotName;
 
-import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.DebianPaths;
 import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigCreator;
@@ -46,9 +46,6 @@ import io.quarkus.runtime.annotations.ConfigRoot;
  */
 public class ConfigReloadProcessor {
 
-    private static final String DEFAULT_PACKAGE_NAME = "quarkus-app";
-    private static final String DEFAULT_SOCKET_DIR = "/run/";
-    private static final String CONTROL_SOCKET_FILENAME = "control.sock";
     private static final String QUARKUS_PREFIX = "quarkus";
     private static final String QUARKUS_PREFIX_DOT = "quarkus.";
     private static final String QUARKUS_PACKAGE_PREFIX = "io.quarkus.";
@@ -115,12 +112,7 @@ public class ConfigReloadProcessor {
         }
 
         String rawPackageName = config.name().orElse(appInfo.getName());
-        String packageName = (rawPackageName != null && !rawPackageName.isBlank())
-                ? DebianPackageNames.sanitize(rawPackageName)
-                : DEFAULT_PACKAGE_NAME;
-
-        String defaultSocketPath = DEFAULT_SOCKET_DIR + packageName + "/" + CONTROL_SOCKET_FILENAME;
-        String socketPath = reloadConfig.socketPath().filter(s -> !s.isBlank()).orElse(defaultSocketPath);
+        String socketPath = DebianPaths.socketPath(rawPackageName, reloadConfig.socketPath().orElse(null));
 
         recorder.startControlServer(shutdownContext, socketPath);
     }
