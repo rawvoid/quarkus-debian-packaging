@@ -51,13 +51,13 @@ public class DebianConfigProcessor {
             recorder.registerMapping(mapping.getConfigClass().getName(), mapping.getPrefix());
         }
 
-        boolean reloadEnabled = config.config().reload().enabled();
+        boolean reloadEnabled = config.reload().enabled();
         String packageName = config.name().orElse(appInfo.getName());
         if (packageName == null || packageName.isBlank()) {
             packageName = "quarkus-app";
         }
 
-        String socketPath = config.config().reload().socketPath()
+        String socketPath = config.reload().socketPath()
                 .orElse("/run/" + packageName + "/control.sock");
 
         recorder.startControlServer(shutdownContext, reloadEnabled, socketPath);

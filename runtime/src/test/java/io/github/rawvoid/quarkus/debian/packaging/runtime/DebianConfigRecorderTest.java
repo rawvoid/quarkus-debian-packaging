@@ -55,6 +55,8 @@ class DebianConfigRecorderTest {
         }
         shutdownTasks.clear();
         System.clearProperty("quarkus.debian.enabled");
+        System.clearProperty("quarkus.debian.reload.enabled");
+        System.clearProperty("quarkus.debian.reload.socket-path");
         System.clearProperty("quarkus.debian.config.reload.enabled");
         System.clearProperty("quarkus.debian.config.reload.socket-path");
     }
@@ -74,7 +76,7 @@ class DebianConfigRecorderTest {
     @Test
     void testDisabledViaReloadEnabled(@TempDir Path tempDir) {
         Path socketPath = tempDir.resolve("control.sock");
-        System.setProperty("quarkus.debian.config.reload.enabled", "false");
+        System.setProperty("quarkus.debian.reload.enabled", "false");
 
         DebianConfigRecorder recorder = new DebianConfigRecorder();
         recorder.startControlServer(shutdownContext, true, socketPath.toString());
@@ -87,7 +89,7 @@ class DebianConfigRecorderTest {
     void testSocketPathOverride(@TempDir Path tempDir) {
         Path defaultSocket = tempDir.resolve("default.sock");
         Path overrideSocket = tempDir.resolve("override.sock");
-        System.setProperty("quarkus.debian.config.reload.socket-path", overrideSocket.toString());
+        System.setProperty("quarkus.debian.reload.socket-path", overrideSocket.toString());
 
         DebianConfigRecorder recorder = new DebianConfigRecorder();
         recorder.startControlServer(shutdownContext, true, defaultSocket.toString());

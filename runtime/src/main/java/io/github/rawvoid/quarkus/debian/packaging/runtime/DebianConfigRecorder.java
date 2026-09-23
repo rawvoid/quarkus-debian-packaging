@@ -60,13 +60,15 @@ public class DebianConfigRecorder {
             return;
         }
 
-        boolean reloadEnabled = config.getOptionalValue("quarkus.debian.config.reload.enabled", Boolean.class)
+        boolean reloadEnabled = config.getOptionalValue("quarkus.debian.reload.enabled", Boolean.class)
+                .or(() -> config.getOptionalValue("quarkus.debian.config.reload.enabled", Boolean.class))
                 .orElse(defaultEnabled);
         if (!reloadEnabled) {
             return;
         }
 
-        String socketPathStr = config.getOptionalValue("quarkus.debian.config.reload.socket-path", String.class)
+        String socketPathStr = config.getOptionalValue("quarkus.debian.reload.socket-path", String.class)
+                .or(() -> config.getOptionalValue("quarkus.debian.config.reload.socket-path", String.class))
                 .filter(s -> !s.isBlank())
                 .orElse(defaultSocketPathStr);
         if (socketPathStr == null || socketPathStr.isBlank()) {

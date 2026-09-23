@@ -93,6 +93,11 @@ public interface DebianPackagingConfig {
     Optional<String> configDir();
 
     /**
+     * Optional override path to the external configuration file (e.g. {@code /etc/my-app/application.properties}).
+     */
+    Optional<String> configFile();
+
+    /**
      * Application data directory created at install time (e.g. {@code /var/lib/my-app}).
      */
     Optional<String> dataDir();
@@ -134,38 +139,20 @@ public interface DebianPackagingConfig {
     Optional<String> outputName();
 
     /**
-     * Debian configuration bridging and reload settings.
+     * Debian configuration reload settings.
      */
-    DebianConfigSection config();
+    ReloadConfig reload();
 
-    interface DebianConfigSection {
+    interface ReloadConfig {
         /**
-         * Whether to automatically bridge external configuration from {@code /etc/${packageName}/application.properties}.
+         * Whether to enable UNIX domain socket reload support.
          */
         @WithDefault("true")
-        boolean autoBridge();
+        boolean enabled();
 
         /**
-         * Optional override path to the external configuration file.
+         * Path to the control UNIX domain socket. Defaults to {@code /run/${packageName}/control.sock}.
          */
-        Optional<String> filePath();
-
-        /**
-         * Reload options.
-         */
-        ReloadConfig reload();
-
-        interface ReloadConfig {
-            /**
-             * Whether to enable UNIX domain socket reload support.
-             */
-            @WithDefault("true")
-            boolean enabled();
-
-            /**
-             * Path to the control UNIX domain socket. Defaults to {@code /run/${packageName}/control.sock}.
-             */
-            Optional<String> socketPath();
-        }
+        Optional<String> socketPath();
     }
 }

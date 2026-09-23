@@ -61,16 +61,11 @@ class DebianExternalConfigSourceTest {
     }
 
     @Test
-    void testFactoryRespectsDisabledSwitches() {
+    void testFactoryRespectsDisabledSwitch() {
         var factory = new DebianConfigSourceFactory();
 
-        // 1. When quarkus.debian.enabled = false
         var disabledContext = createContext(Map.of("quarkus.debian.enabled", "false"));
         assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
-
-        // 2. When auto-bridge = false
-        var noBridgeContext = createContext(Map.of("quarkus.debian.config.auto-bridge", "false"));
-        assertFalse(factory.getConfigSources(noBridgeContext).iterator().hasNext());
     }
 
     @Test
@@ -91,10 +86,10 @@ class DebianExternalConfigSourceTest {
         source = (DebianExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-fallback-app/application.properties"), source.getConfigFile());
 
-        // 3. Custom file path override
+        // 3. Custom config file override
         var customFileContext = createContext(Map.of(
                 "quarkus.debian.name", "my-app",
-                "quarkus.debian.config.file-path", "/opt/custom/config.properties"));
+                "quarkus.debian.config-file", "/opt/custom/config.properties"));
         sources = factory.getConfigSources(customFileContext).iterator();
         assertTrue(sources.hasNext());
         source = (DebianExternalConfigSource) sources.next();
