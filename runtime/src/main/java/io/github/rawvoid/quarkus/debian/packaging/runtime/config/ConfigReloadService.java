@@ -74,6 +74,10 @@ public class ConfigReloadService {
             LOG.warn("Configuration reload aborted: external configuration file path is not defined.");
             return new ReloadResult(false, "External configuration file path is not defined.", 0);
         }
+        if (!Files.isRegularFile(mainConfigFile) || !Files.isReadable(mainConfigFile)) {
+            LOG.warnf("Configuration reload aborted: main configuration file %s is missing or unreadable.", mainConfigFile);
+            return new ReloadResult(false, "Main configuration file " + mainConfigFile + " is missing or unreadable.", 0);
+        }
 
         // Phase 1: Load raw properties from disk for all sources in group
         Map<ExternalConfigSource, Map<String, String>> newPropsMap = new HashMap<>();

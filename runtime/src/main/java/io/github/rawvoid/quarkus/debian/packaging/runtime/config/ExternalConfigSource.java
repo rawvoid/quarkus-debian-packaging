@@ -103,8 +103,12 @@ public class ExternalConfigSource implements ConfigSource {
      * Returns an empty map if the file does not exist.
      */
     public static Map<String, String> loadFromFile(Path path) {
-        if (path == null || !Files.isRegularFile(path) || !Files.isReadable(path)) {
+        if (path == null || !Files.exists(path)) {
             return Collections.emptyMap();
+        }
+        if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
+            throw new UncheckedIOException("External configuration file is not a readable regular file: " + path,
+                    new IOException("Cannot read regular file: " + path));
         }
         Properties properties = new Properties();
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {

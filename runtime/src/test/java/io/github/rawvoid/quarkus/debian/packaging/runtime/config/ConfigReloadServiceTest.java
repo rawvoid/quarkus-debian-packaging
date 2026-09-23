@@ -192,4 +192,93 @@ class ConfigReloadServiceTest {
         assertEquals("new-main-host", finalSnapshot.host());
         assertEquals(9443, finalSnapshot.port());
     }
+
+    @Test
+    void testReloadAbortsWhenMainConfigFileMissing() throws IOException {
+        Path mainFile = tempDir.resolve("application.properties");
+        Files.writeString(mainFile, "service.host=main-host\nservice.port=8080\n");
+
+        var mainSource = new ExternalConfigSource(mainFile, 275);
+        ExternalConfigGroup.register(new ExternalConfigGroup(mainFile, List.of(mainSource)));
+
+        var reloadService = new ConfigReloadService();
+        reloadService.registerMapping(SampleServiceConfig.class, "service");
+
+        var initialResult = reloadService.reload();
+        assertTrue(initialResult.success());
+        assertEquals("main-host", ReloadableConfigRegistry.get(SampleServiceConfig.class, "service").host());
+
+        // Delete main configuration file
+        Files.delete(mainFile);
+
+        var failResult = reloadService.reload();
+        assertFalse(failResult.success());
+        assertTrue(failResult.message().contains("missing or unreadable"));
+
+        // Active state must remain intact without committing an empty map
+        assertEquals("main-host", mainSource.getValue("service.host"));
+        assertEquals("main-host", ReloadableConfigRegistry.get(SampleServiceConfig.class, "service").host());
+    }
+
+    @Test
+    void testReloadAbortsWhenMainConfigFileUnreadable() throws IOException {
+        Path mainFile = tempDir.resolve("application.properties");
+        Files.writeString(mainFile, "service.host=main-host\nservice.port=8080\n");
+
+        var mainSource = new ExternalConfigSource(mainFile, 275);
+        ExternalConfigGroup.register(new ExternalConfigGroup(mainFile, List.of(mainSource)));
+
+        var reloadService = new ConfigReloadService();
+        reloadService.registerMapping(SampleServiceConfig.class, "service");
+
+        var initialResult = reloadService.reload();
+        assertTrue(initialResult.success());
+
+        if (mainFile.toFile().setReadable(false)) {
+            try {
+                var failResult = reloadService.reload();
+                assertFalse(failResult.success());
+                assertTrue(failResult.message().contains("missing or unreadable")
+                        || failResult.message().contains("IO error"));
+
+                assertEquals("main-host", mainSource.getValue("service.host"));
+                assertEquals("main-host", ReloadableConfigRegistry.get(SampleServiceConfig.class, "service").host());
+            } finally {
+                mainFile.toFile().setReadable(true);
+            }
+        }
+    }
+
+    @Test
+    void testReloadAbortsWhenCompanionProfileFileUnreadable() throws IOException {
+        Path mainFile = tempDir.resolve("application.properties");
+        Path prodFile = tempDir.resolve("application-prod.properties");
+
+        Files.writeString(mainFile, "service.host=main-host\nservice.port=8080\n");
+        Files.writeString(prodFile, "service.port=8443\n");
+
+        var mainSource = new ExternalConfigSource(mainFile, 275);
+        var prodSource = new ExternalConfigSource(prodFile, 276);
+        ExternalConfigGroup.register(new ExternalConfigGroup(mainFile, List.of(mainSource, prodSource)));
+
+        var reloadService = new ConfigReloadService();
+        reloadService.registerMapping(SampleServiceConfig.class, "service");
+
+        var initialResult = reloadService.reload();
+        assertTrue(initialResult.success());
+
+        if (prodFile.toFile().setReadable(false)) {
+            try {
+                var failResult = reloadService.reload();
+                assertFalse(failResult.success());
+                assertTrue(failResult.message().contains("IO error") || failResult.message().contains("Syntax or IO error"));
+
+                assertEquals("main-host", mainSource.getValue("service.host"));
+                assertEquals("8443", prodSource.getValue("service.port"));
+                assertEquals(8443, ReloadableConfigRegistry.get(SampleServiceConfig.class, "service").port());
+            } finally {
+                prodFile.toFile().setReadable(true);
+            }
+        }
+    }
 }
