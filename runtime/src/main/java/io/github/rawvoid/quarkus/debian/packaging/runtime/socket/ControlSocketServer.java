@@ -72,7 +72,7 @@ public class ControlSocketServer implements AutoCloseable {
             serverChannel.bind(UnixDomainSocketAddress.of(socketPath));
             running.set(true);
 
-            listenerThread = new Thread(this::listenLoop, "debian-control-socket");
+            listenerThread = new Thread(this::listenLoop, "control-socket-listener");
             listenerThread.setDaemon(true);
             listenerThread.start();
             LOG.info("Control socket listening on " + socketPath);
