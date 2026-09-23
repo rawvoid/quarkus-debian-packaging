@@ -246,17 +246,25 @@ public record DebianPackageModel(
             throw new IllegalArgumentException("Path must not be blank.");
         }
         String path = raw.trim().replace('\\', '/');
-        while (path.length() > 1 && path.endsWith("/")) {
-            path = path.substring(0, path.length() - 1);
-        }
         if (!path.startsWith("/")) {
             throw new IllegalArgumentException(
                     "Path '" + raw + "' must be an absolute path starting with '/'.");
         }
-        if (path.contains("//")) {
-            path = path.replaceAll("/{2,}", "/");
+        for (String segment : path.split("/+")) {
+            if ("..".equals(segment)) {
+                throw new IllegalArgumentException(
+                        "Path '" + raw + "' contains forbidden directory traversal '..'.");
+            }
         }
-        return path;
+        String normalized = Path.of(path).normalize().toString().replace('\\', '/');
+        while (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if ("/".equals(normalized)) {
+            throw new IllegalArgumentException(
+                    "Path '" + raw + "' cannot be the filesystem root '/'.");
+        }
+        return normalized;
     }
 
     static String validateUnixAccount(String raw) {

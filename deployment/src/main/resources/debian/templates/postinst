@@ -7,6 +7,7 @@ SERVICE_USER="${serviceUser}"
 SERVICE_GROUP="${serviceGroup}"
 INSTALL_DIR="${installDir}"
 CONFIG_DIR="${configDir}"
+CONFIG_FILE="${configFile}"
 DATA_DIR="${dataDir}"
 LOG_DIR="${logDir}"
 
@@ -30,10 +31,18 @@ create_service_account() {
 }
 
 create_directories() {
-    [ -d "${INSTALL_DIR}" ] || install -d -o root -g "${SERVICE_GROUP}" -m 0750 "${INSTALL_DIR}"
-    [ -d "${CONFIG_DIR}" ] || install -d -o root -g "${SERVICE_GROUP}" -m 0750 "${CONFIG_DIR}"
-    [ -d "${DATA_DIR}" ] || install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${DATA_DIR}"
-    [ -d "${LOG_DIR}" ] || install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${LOG_DIR}"
+    install -d -o root -g "${SERVICE_GROUP}" -m 0750 "${INSTALL_DIR}"
+    install -d -o root -g "${SERVICE_GROUP}" -m 0750 "${CONFIG_DIR}"
+    install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${DATA_DIR}"
+    install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${LOG_DIR}"
+
+    chown root:"${SERVICE_GROUP}" "${CONFIG_DIR}"
+    chmod 0750 "${CONFIG_DIR}"
+
+    if [ -f "${CONFIG_FILE}" ]; then
+        chown root:"${SERVICE_GROUP}" "${CONFIG_FILE}"
+        chmod 0640 "${CONFIG_FILE}"
+    fi
 }
 
 clear_upgrade_restart_marker() {

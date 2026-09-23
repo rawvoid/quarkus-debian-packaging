@@ -112,6 +112,24 @@ class TemplateRendererTest {
     }
 
     @Test
+    void rendersPostinstScript() {
+        String postinst = TemplateRenderer.render("postinst", Map.of(
+                "packageName", "demo",
+                "systemdServiceName", "demo.service",
+                "serviceUser", "demo",
+                "serviceGroup", "demo",
+                "installDir", "/usr/share/demo",
+                "configDir", "/etc/demo",
+                "configFile", "/etc/demo/application.properties",
+                "dataDir", "/var/lib/demo",
+                "logDir", "/var/log/demo"));
+        assertTrue(postinst.contains("CONFIG_FILE=\"/etc/demo/application.properties\""));
+        assertTrue(postinst.contains("chmod 0750 \"${CONFIG_DIR}\""));
+        assertTrue(postinst.contains("chmod 0640 \"${CONFIG_FILE}\""));
+        assertTrue(postinst.contains("chown root:\"${SERVICE_GROUP}\" \"${CONFIG_FILE}\""));
+    }
+
+    @Test
     void rendersUnitService() {
         String service = TemplateRenderer.render("unit.service", Map.of(
                 "description", "Demo Service",
