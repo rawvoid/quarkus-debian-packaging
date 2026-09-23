@@ -49,7 +49,7 @@ import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
  *
  * @author rawvoid
  */
-class DebianPackageAssemblerTest {
+class DebPackagerTest {
 
     @TempDir
     Path tempDir;
@@ -59,7 +59,7 @@ class DebianPackageAssemblerTest {
         Path runner = tempDir.resolve("demo-runner.jar");
         Files.writeString(runner, "uber-content");
 
-        Path deb = DebianPackageAssembler.assemble(model("uber-demo", PackagePayload.uberJar(runner), Optional.empty()));
+        Path deb = DebPackager.packageDeb(model("uber-demo", PackagePayload.uberJar(runner), Optional.empty()));
         Map<String, TarMember> data = readDataMembers(deb);
 
         assertTrue(data.containsKey("usr/share/uber-demo/demo-runner.jar"));
@@ -87,7 +87,7 @@ class DebianPackageAssemblerTest {
         Files.writeString(runner, "legacy");
         Files.writeString(lib.resolve("dep.jar"), "dep");
 
-        Path deb = DebianPackageAssembler.assemble(model("legacy-demo", PackagePayload.legacyJar(runner, lib), Optional.empty()));
+        Path deb = DebPackager.packageDeb(model("legacy-demo", PackagePayload.legacyJar(runner, lib), Optional.empty()));
         Map<String, TarMember> data = readDataMembers(deb);
 
         assertTrue(data.containsKey("usr/share/legacy-demo/legacy-runner.jar"));
@@ -101,7 +101,7 @@ class DebianPackageAssemblerTest {
         Path binary = tempDir.resolve("native-demo-runner");
         Files.writeString(binary, "native-bin");
 
-        Path deb = DebianPackageAssembler.assemble(
+        Path deb = DebPackager.packageDeb(
                 model("native-demo", PackagePayload.nativeImage(binary), Optional.of("amd64")));
         Map<String, TarMember> data = readDataMembers(deb);
         Map<String, String> control = readControlStrings(deb);
@@ -133,7 +133,7 @@ class DebianPackageAssemblerTest {
     void jvmPrermClearsHsPerfData() throws Exception {
         Path runner = tempDir.resolve("demo-runner.jar");
         Files.writeString(runner, "uber");
-        Path deb = DebianPackageAssembler.assemble(model("jvm-demo", PackagePayload.uberJar(runner), Optional.empty()));
+        Path deb = DebPackager.packageDeb(model("jvm-demo", PackagePayload.uberJar(runner), Optional.empty()));
         Map<String, String> control = readControlStrings(deb);
         assertTrue(control.get("prerm").contains("hsperfdata_jvm-demo"));
     }

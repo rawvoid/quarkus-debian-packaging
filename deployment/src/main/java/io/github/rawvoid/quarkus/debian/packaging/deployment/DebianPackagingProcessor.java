@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import org.jboss.logging.Logger;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.deployment.builder.DebianPackageAssembler;
+import io.github.rawvoid.quarkus.debian.packaging.deployment.builder.DebPackager;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.DebianPackageModel;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.PackagePayload;
 import io.quarkus.deployment.IsProduction;
@@ -78,7 +78,7 @@ class DebianPackagingProcessor {
             OutputTargetBuildItem outputTarget,
             PackagePayload payload) {
         DebianPackageModel model = DebianPackageModel.resolve(config, applicationInfo, outputTarget, payload);
-        Path deb = DebianPackageAssembler.assemble(model);
+        Path deb = DebPackager.packageDeb(model);
         LOG.debugf(
                 "Debian package model: name=%s version=%s arch=%s payload=%s path=%s",
                 model.packageName(),
