@@ -175,6 +175,11 @@ class DebianConfigProcessorTest {
             }
 
             @Override
+            public Optional<String> configFile() {
+                return Optional.empty();
+            }
+
+            @Override
             public Optional<String> dataDir() {
                 return Optional.empty();
             }
@@ -215,31 +220,16 @@ class DebianConfigProcessorTest {
             }
 
             @Override
-            public DebianConfigSection config() {
-                return new DebianConfigSection() {
+            public ReloadConfig reload() {
+                return new ReloadConfig() {
                     @Override
-                    public boolean autoBridge() {
+                    public boolean enabled() {
                         return true;
                     }
 
                     @Override
-                    public Optional<String> filePath() {
+                    public Optional<String> socketPath() {
                         return Optional.empty();
-                    }
-
-                    @Override
-                    public ReloadConfig reload() {
-                        return new ReloadConfig() {
-                            @Override
-                            public boolean enabled() {
-                                return true;
-                            }
-
-                            @Override
-                            public Optional<String> socketPath() {
-                                return Optional.empty();
-                            }
-                        };
                     }
                 };
             }

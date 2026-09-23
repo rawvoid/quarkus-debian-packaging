@@ -62,7 +62,7 @@ public class DebianConfigSourceFactory implements ConfigurableConfigSourceFactor
 
     @Override
     public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context, DebianPackagingConfig config) {
-        if (!config.enabled() || !config.config().autoBridge()) {
+        if (!config.enabled()) {
             return Collections.emptyList();
         }
 
@@ -70,8 +70,8 @@ public class DebianConfigSourceFactory implements ConfigurableConfigSourceFactor
                 .orElseGet(() -> getOptionalValue(context, "quarkus.application.name"));
 
         Path configFilePath;
-        if (config.config().filePath().filter(s -> !s.isBlank()).isPresent()) {
-            configFilePath = Path.of(config.config().filePath().get());
+        if (config.configFile().filter(s -> !s.isBlank()).isPresent()) {
+            configFilePath = Path.of(config.configFile().get());
         } else {
             if (packageName == null || packageName.isBlank()) {
                 return Collections.emptyList();
