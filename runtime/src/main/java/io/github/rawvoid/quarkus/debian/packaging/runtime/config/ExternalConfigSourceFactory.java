@@ -25,15 +25,15 @@ import java.util.OptionalInt;
 import org.eclipse.microprofile.config.spi.ConfigSource;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.quarkus.runtime.ApplicationConfig;
 import io.smallrye.config.ConfigSourceContext;
 import io.smallrye.config.ConfigSourceFactory.ConfigurableConfigSourceFactory;
-import io.smallrye.config.ConfigValue;
 import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
 
 /**
  * Discovers and registers {@link ExternalConfigSource} at application bootstrap
- * using typed {@link DebianPackagingConfig} mapping.
+ * using typed {@link DebianPackagingConfig} and {@link ApplicationConfig} mappings.
  *
  * @author rawvoid
  */
@@ -54,20 +54,32 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
                 .withSources(new ConfigSourceContext.ConfigSourceContextConfigSource(context))
                 .withSources(sources)
                 .withMapping(DebianPackagingConfig.class)
+                .withMapping(ApplicationConfig.class)
+                .withValidateUnknown(false)
                 .build();
 
-        DebianPackagingConfig mapping = config.getConfigMapping(DebianPackagingConfig.class);
-        return getConfigSources(context, mapping);
+        DebianPackagingConfig debianConfig = config.getConfigMapping(DebianPackagingConfig.class);
+        ApplicationConfig appConfig = config.getConfigMapping(ApplicationConfig.class);
+        return getConfigSources(context, debianConfig, appConfig);
     }
 
     @Override
     public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context, DebianPackagingConfig config) {
+        return getConfigSources(context);
+    }
+
+    public Iterable<ConfigSource> getConfigSources(
+            ConfigSourceContext context,
+            DebianPackagingConfig config,
+            ApplicationConfig appConfig) {
         if (!config.enabled()) {
             return Collections.emptyList();
         }
 
         String packageName = config.name().filter(s -> !s.isBlank())
-                .orElseGet(() -> getOptionalValue(context, "quarkus.application.name"));
+                .or(appConfig::name)
+                .filter(s -> !s.isBlank())
+                .orElse(null);
 
         Path configFilePath;
         if (config.configFile().filter(s -> !s.isBlank()).isPresent()) {
@@ -77,9 +89,9 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
                 return Collections.emptyList();
             }
             if (config.configDir().filter(s -> !s.isBlank()).isPresent()) {
-                configFilePath = Path.of(config.configDir().get(), "application.properties");
+                configFilePath = Path.of(config.configDir().get(), ExternalConfigSource.DEFAULT_CONFIG_FILENAME);
             } else {
-                configFilePath = Path.of("/etc", packageName, "application.properties");
+                configFilePath = Path.of(ExternalConfigSource.DEFAULT_CONFIG_DIR, packageName, ExternalConfigSource.DEFAULT_CONFIG_FILENAME);
             }
         }
 
@@ -102,10 +114,5 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
         } catch (UnsupportedOperationException e) {
             return Collections.emptyList();
         }
-    }
-
-    private static String getOptionalValue(ConfigSourceContext context, String name) {
-        ConfigValue val = context.getValue(name);
-        return (val != null && val.getValue() != null && !val.getValue().isBlank()) ? val.getValue() : null;
     }
 }

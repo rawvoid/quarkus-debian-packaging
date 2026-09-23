@@ -67,14 +67,14 @@ class ConfigReloadProcessorTest {
     @Test
     void testSetupConfigReloadExcludesFrameworkMappings() {
         var recordedMappings = new ArrayList<String>();
-        var recorder = new ConfigReloadRecorder() {
+        var recorder = new ConfigReloadRecorder(null) {
             @Override
             public void registerMapping(String className, String prefix) {
                 recordedMappings.add(className);
             }
 
             @Override
-            public void startControlServer(ShutdownContext shutdownContext, boolean enabled, String socketPath) {
+            public void startControlServer(ShutdownContext shutdownContext, String defaultSocketPathStr) {
                 // no-op in unit test
             }
         };
@@ -217,21 +217,6 @@ class ConfigReloadProcessorTest {
             @Override
             public Optional<String> outputName() {
                 return Optional.empty();
-            }
-
-            @Override
-            public ReloadConfig reload() {
-                return new ReloadConfig() {
-                    @Override
-                    public boolean enabled() {
-                        return true;
-                    }
-
-                    @Override
-                    public Optional<String> socketPath() {
-                        return Optional.empty();
-                    }
-                };
             }
         };
     }

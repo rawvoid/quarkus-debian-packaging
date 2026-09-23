@@ -138,21 +138,4 @@ public interface DebianPackagingConfig {
      */
     Optional<String> outputName();
 
-    /**
-     * Debian configuration reload settings.
-     */
-    ReloadConfig reload();
-
-    interface ReloadConfig {
-        /**
-         * Whether to enable UNIX domain socket reload support.
-         */
-        @WithDefault("true")
-        boolean enabled();
-
-        /**
-         * Path to the control UNIX domain socket. Defaults to {@code /run/${packageName}/control.sock}.
-         */
-        Optional<String> socketPath();
-    }
 }

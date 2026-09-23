@@ -110,7 +110,7 @@ class DebianPackageModelTest {
     void rejectsInvalidExplicitServiceUser() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> resolve(configWithNameAndUser("myapp", "bad.user"), payload()));
-        assertTrue(error.getMessage().contains("quarkus.debian.service-user"));
+        assertTrue(error.getMessage().contains("bad.user"));
     }
 
     @Test
@@ -252,21 +252,6 @@ class DebianPackageModelTest {
             @Override
             public Optional<String> outputName() {
                 return Optional.empty();
-            }
-
-            @Override
-            public ReloadConfig reload() {
-                return new ReloadConfig() {
-                    @Override
-                    public boolean enabled() {
-                        return true;
-                    }
-
-                    @Override
-                    public Optional<String> socketPath() {
-                        return Optional.empty();
-                    }
-                };
             }
         };
     }

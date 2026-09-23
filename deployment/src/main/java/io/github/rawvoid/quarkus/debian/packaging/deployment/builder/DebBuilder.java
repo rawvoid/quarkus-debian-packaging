@@ -49,6 +49,13 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters;
  */
 public final class DebBuilder {
 
+    public static final String ENTRY_DEBIAN_BINARY = "debian-binary";
+    public static final String ENTRY_CONTROL_TAR_GZ = "control.tar.gz";
+    public static final String ENTRY_DATA_TAR_GZ = "data.tar.gz";
+    public static final String ENTRY_CONTROL = "control";
+    public static final String ENTRY_MD5SUMS = "md5sums";
+    public static final String ENTRY_CONFFILES = "conffiles";
+
     private static final byte[] DEBIAN_BINARY = "2.0\n".getBytes(StandardCharsets.US_ASCII);
 
     private DebBuilder() {
@@ -68,17 +75,17 @@ public final class DebBuilder {
 
         Path workDir = Files.createTempDirectory("quarkus-debian-");
         try {
-            Path dataTarGz = workDir.resolve("data.tar.gz");
-            Path controlTarGz = workDir.resolve("control.tar.gz");
+            Path dataTarGz = workDir.resolve(ENTRY_DATA_TAR_GZ);
+            Path controlTarGz = workDir.resolve(ENTRY_CONTROL_TAR_GZ);
 
             DataArchiveMeta dataMeta = writeDataArchive(dataTarGz, dataEntries);
             writeControlArchive(controlTarGz, controlText, controlEntries, dataMeta);
 
             try (OutputStream fileOut = Files.newOutputStream(debFile);
                     ArArchiveOutputStream ar = new ArArchiveOutputStream(fileOut)) {
-                writeArEntry(ar, "debian-binary", DEBIAN_BINARY);
-                writeArEntry(ar, "control.tar.gz", controlTarGz);
-                writeArEntry(ar, "data.tar.gz", dataTarGz);
+                writeArEntry(ar, ENTRY_DEBIAN_BINARY, DEBIAN_BINARY);
+                writeArEntry(ar, ENTRY_CONTROL_TAR_GZ, controlTarGz);
+                writeArEntry(ar, ENTRY_DATA_TAR_GZ, dataTarGz);
             }
         } finally {
             deleteRecursively(workDir);
@@ -105,14 +112,14 @@ public final class DebBuilder {
             List<DebEntry> controlEntries,
             DataArchiveMeta dataMeta) throws IOException {
         List<DebEntry> all = new ArrayList<>();
-        all.add(DebEntry.bytes("control", controlText.getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
-        all.add(DebEntry.bytes("md5sums", dataMeta.md5sums().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
+        all.add(DebEntry.bytes(ENTRY_CONTROL, controlText.getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
+        all.add(DebEntry.bytes(ENTRY_MD5SUMS, dataMeta.md5sums().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
         if (!dataMeta.conffiles().isEmpty()) {
             StringBuilder conf = new StringBuilder();
             for (String path : dataMeta.conffiles()) {
                 conf.append('/').append(path).append('\n');
             }
-            all.add(DebEntry.bytes("conffiles", conf.toString().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
+            all.add(DebEntry.bytes(ENTRY_CONFFILES, conf.toString().getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false));
         }
         all.addAll(controlEntries);
         writeTarGz(controlTarGz, all, false);

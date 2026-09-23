@@ -43,6 +43,9 @@ import org.eclipse.microprofile.config.spi.ConfigSource;
 public class ExternalConfigSource implements ConfigSource {
 
     public static final int ORDINAL = 275;
+    public static final String DEFAULT_CONFIG_DIR = "/etc";
+    public static final String DEFAULT_CONFIG_FILENAME = "application.properties";
+
     private static volatile ExternalConfigSource instance;
 
     private final Path configFile;

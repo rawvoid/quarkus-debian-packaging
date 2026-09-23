@@ -23,11 +23,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
+import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.ShutdownContext;
 
 class ConfigReloadRecorderTest {
@@ -54,20 +57,14 @@ class ConfigReloadRecorderTest {
             }
         }
         shutdownTasks.clear();
-        System.clearProperty("quarkus.debian.enabled");
-        System.clearProperty("quarkus.debian.reload.enabled");
-        System.clearProperty("quarkus.debian.reload.socket-path");
-        System.clearProperty("quarkus.debian.config.reload.enabled");
-        System.clearProperty("quarkus.debian.config.reload.socket-path");
     }
 
     @Test
-    void testDisabledViaDebianEnabled(@TempDir Path tempDir) {
+    void testDisabledWhenConfigNull(@TempDir Path tempDir) {
         Path socketPath = tempDir.resolve("control.sock");
-        System.setProperty("quarkus.debian.enabled", "false");
 
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder();
-        recorder.startControlServer(shutdownContext, true, socketPath.toString());
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder(null);
+        recorder.startControlServer(shutdownContext, socketPath.toString());
 
         assertFalse(Files.exists(socketPath));
         assertTrue(shutdownTasks.isEmpty());
@@ -76,26 +73,49 @@ class ConfigReloadRecorderTest {
     @Test
     void testDisabledViaReloadEnabled(@TempDir Path tempDir) {
         Path socketPath = tempDir.resolve("control.sock");
-        System.setProperty("quarkus.debian.reload.enabled", "false");
 
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder();
-        recorder.startControlServer(shutdownContext, true, socketPath.toString());
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder(new RuntimeValue<>(runtimeConfig(false, null)));
+        recorder.startControlServer(shutdownContext, socketPath.toString());
 
         assertFalse(Files.exists(socketPath));
         assertTrue(shutdownTasks.isEmpty());
     }
 
     @Test
+    void testDefaultSocketPath(@TempDir Path tempDir) {
+        Path defaultSocket = tempDir.resolve("default.sock");
+
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder(new RuntimeValue<>(runtimeConfig(true, null)));
+        recorder.startControlServer(shutdownContext, defaultSocket.toString());
+
+        assertTrue(Files.exists(defaultSocket));
+        assertFalse(shutdownTasks.isEmpty());
+    }
+
+    @Test
     void testSocketPathOverride(@TempDir Path tempDir) {
         Path defaultSocket = tempDir.resolve("default.sock");
         Path overrideSocket = tempDir.resolve("override.sock");
-        System.setProperty("quarkus.debian.reload.socket-path", overrideSocket.toString());
 
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder();
-        recorder.startControlServer(shutdownContext, true, defaultSocket.toString());
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder(new RuntimeValue<>(runtimeConfig(true, overrideSocket.toString())));
+        recorder.startControlServer(shutdownContext, defaultSocket.toString());
 
         assertFalse(Files.exists(defaultSocket));
         assertTrue(Files.exists(overrideSocket));
         assertFalse(shutdownTasks.isEmpty());
+    }
+
+    private static ReloadConfig runtimeConfig(boolean enabled, String socketPath) {
+        return new ReloadConfig() {
+            @Override
+            public boolean enabled() {
+                return enabled;
+            }
+
+            @Override
+            public Optional<String> socketPath() {
+                return Optional.ofNullable(socketPath);
+            }
+        };
     }
 }
