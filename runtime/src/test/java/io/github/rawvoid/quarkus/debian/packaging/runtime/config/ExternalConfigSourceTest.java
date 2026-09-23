@@ -29,6 +29,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import io.quarkus.runtime.LaunchMode;
 import io.smallrye.config.ConfigSourceContext;
 import io.smallrye.config.ConfigValue;
 
@@ -81,6 +82,27 @@ class ExternalConfigSourceTest {
 
         var disabledContext = createContext(Map.of("quarkus.debian.enabled", "false"));
         assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
+    }
+
+    @Test
+    void testFactorySkipsDefaultConfigInDevelopmentMode() {
+        LaunchMode prev = LaunchMode.current();
+        try {
+            LaunchMode.set(LaunchMode.DEVELOPMENT);
+            var factory = new ExternalConfigSourceFactory();
+
+            // Default config without explicit configFile is skipped in dev mode
+            var context = createContext(Map.of("quarkus.debian.name", "my-app"));
+            assertFalse(factory.getConfigSources(context).iterator().hasNext());
+
+            // Explicit configFile is still honored in dev mode
+            var explicitContext = createContext(Map.of(
+                    "quarkus.debian.name", "my-app",
+                    "quarkus.debian.config-file", "/tmp/dev.properties"));
+            assertTrue(factory.getConfigSources(explicitContext).iterator().hasNext());
+        } finally {
+            LaunchMode.set(prev);
+        }
     }
 
     @Test

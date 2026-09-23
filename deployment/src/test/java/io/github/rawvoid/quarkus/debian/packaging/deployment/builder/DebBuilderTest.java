@@ -16,6 +16,7 @@
 
 package io.github.rawvoid.quarkus.debian.packaging.deployment.builder;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,13 +94,16 @@ class DebBuilderTest {
         assertTrue(Files.isRegularFile(deb));
         assertTrue(Files.size(deb) > 0);
 
-        Map<String, byte[]> arMembers = readAr(deb);
+        Map<String, ArMember> arMembers = readAr(deb);
         assertTrue(arMembers.containsKey("debian-binary"));
-        assertEquals("2.0\n", new String(arMembers.get("debian-binary"), StandardCharsets.US_ASCII));
+        assertEquals("2.0\n", new String(arMembers.get("debian-binary").content(), StandardCharsets.US_ASCII));
+        assertEquals(0L, arMembers.get("debian-binary").lastModified(), "Ar entry timestamp must be 0 for reproducibility");
         assertTrue(arMembers.containsKey("control.tar.gz"));
+        assertEquals(0L, arMembers.get("control.tar.gz").lastModified(), "Ar entry timestamp must be 0 for reproducibility");
         assertTrue(arMembers.containsKey("data.tar.gz"));
+        assertEquals(0L, arMembers.get("data.tar.gz").lastModified(), "Ar entry timestamp must be 0 for reproducibility");
 
-        Map<String, TarMember> controlMembers = readTarGz(arMembers.get("control.tar.gz"));
+        Map<String, TarMember> controlMembers = readTarGz(arMembers.get("control.tar.gz").content());
         assertTrue(controlMembers.containsKey("control"));
         assertTrue(controlMembers.containsKey("md5sums"));
         assertTrue(controlMembers.containsKey("conffiles"));
@@ -109,7 +113,7 @@ class DebBuilderTest {
         String conffiles = new String(controlMembers.get("conffiles").content(), StandardCharsets.UTF_8);
         assertTrue(conffiles.contains("/etc/default/demo"));
 
-        Map<String, TarMember> dataMembers = readTarGz(arMembers.get("data.tar.gz"));
+        Map<String, TarMember> dataMembers = readTarGz(arMembers.get("data.tar.gz").content());
         assertTrue(dataMembers.containsKey("usr/share/demo/app.txt"));
         assertTrue(dataMembers.containsKey("usr/bin/demo"));
         assertTrue(dataMembers.containsKey("etc/default/demo"));
@@ -118,13 +122,38 @@ class DebBuilderTest {
         assertEquals(DebEntry.MODE_FILE, dataMembers.get("etc/default/demo").mode() & 0777);
     }
 
-    private static Map<String, byte[]> readAr(Path deb) throws Exception {
-        Map<String, byte[]> members = new HashMap<>();
+    @Test
+    void testReproducibleBuildDeterminism() throws Exception {
+        List<DebEntry> data = List.of(
+                DebEntry.bytes("usr/share/demo/app.txt", "hello-deb".getBytes(StandardCharsets.UTF_8), DebEntry.MODE_FILE, false),
+                DebEntry.bytes("usr/bin/demo", "#!/bin/sh\necho hi\n".getBytes(StandardCharsets.UTF_8), DebEntry.MODE_EXEC, false));
+        String control = """
+                Package: demo
+                Version: 1.0.0
+                Architecture: all
+                Maintainer: Test <test@example.com>
+                Description: demo service
+                """;
+        List<DebEntry> controlEntries = List.of();
+
+        Path deb1 = tempDir.resolve("demo_run1.deb");
+        Path deb2 = tempDir.resolve("demo_run2.deb");
+
+        DebBuilder.build(deb1, control, controlEntries, data);
+        DebBuilder.build(deb2, control, controlEntries, data);
+
+        byte[] bytes1 = Files.readAllBytes(deb1);
+        byte[] bytes2 = Files.readAllBytes(deb2);
+        assertArrayEquals(bytes1, bytes2, "Repeated builds must produce bitwise identical deb packages");
+    }
+
+    private static Map<String, ArMember> readAr(Path deb) throws Exception {
+        Map<String, ArMember> members = new HashMap<>();
         try (InputStream in = Files.newInputStream(deb);
                 ArArchiveInputStream ar = new ArArchiveInputStream(in)) {
             ArArchiveEntry entry;
             while ((entry = ar.getNextEntry()) != null) {
-                members.put(entry.getName(), ar.readAllBytes());
+                members.put(entry.getName(), new ArMember(ar.readAllBytes(), entry.getLastModified()));
             }
         }
         return members;
@@ -148,6 +177,9 @@ class DebBuilderTest {
             }
         }
         return members;
+    }
+
+    private record ArMember(byte[] content, long lastModified) {
     }
 
     /**
