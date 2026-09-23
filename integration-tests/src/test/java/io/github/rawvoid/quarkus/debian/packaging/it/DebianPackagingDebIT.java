@@ -100,7 +100,7 @@ public class DebianPackagingDebIT {
                 .orElseThrow();
         assertTrue(unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
         assertTrue(unit.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
-        assertFalse(unit.contains("NoNewPrivileges"));
+        assertTrue(unit.contains("NoNewPrivileges=true"));
 
         String defaults = dataFiles.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("etc/default/"))

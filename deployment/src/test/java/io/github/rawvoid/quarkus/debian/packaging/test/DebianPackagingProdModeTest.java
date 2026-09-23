@@ -105,7 +105,7 @@ public class DebianPackagingProdModeTest {
         assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecStart=/usr/bin/prod-deb-app"));
         assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
         assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
-        assertFalse(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("NoNewPrivileges"));
+        assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("NoNewPrivileges=true"));
 
         String postinst = control.get("postinst");
         assertTrue(postinst.contains("CONFIG_FILE=\"/etc/prod-deb-app/application.properties\""));
