@@ -35,14 +35,14 @@ import io.github.rawvoid.quarkus.debian.packaging.deployment.model.PackagePayloa
  *
  * @author rawvoid
  */
-public final class DebPackager {
+public final class DebianPackageAssembler {
 
-    private static final Logger LOG = Logger.getLogger(DebPackager.class);
+    private static final Logger LOG = Logger.getLogger(DebianPackageAssembler.class);
 
-    private DebPackager() {
+    private DebianPackageAssembler() {
     }
 
-    public static Path packageDeb(DebianPackageModel model) {
+    public static Path assemble(DebianPackageModel model) {
         try {
             // Data templates do not use installedSize; build the tree once.
             List<DebEntry> dataEntries = buildDataEntries(model);

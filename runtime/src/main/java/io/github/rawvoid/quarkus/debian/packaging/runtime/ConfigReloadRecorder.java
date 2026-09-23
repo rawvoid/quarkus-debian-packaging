@@ -21,22 +21,22 @@ import java.nio.file.Path;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 
-import io.github.rawvoid.quarkus.debian.packaging.runtime.config.DebianConfigReloadService;
-import io.github.rawvoid.quarkus.debian.packaging.runtime.socket.DebianControlSocketServer;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.socket.ControlSocketServer;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
 
 /**
- * Quarkus bytecode recorder for registering config mappings and starting the Debian control socket server.
+ * Quarkus bytecode recorder for registering config mappings and starting the control socket server.
  *
  * @author rawvoid
  */
 @Recorder
-public class DebianConfigRecorder {
+public class ConfigReloadRecorder {
 
-    private static final DebianConfigReloadService RELOAD_SERVICE = new DebianConfigReloadService();
+    private static final ConfigReloadService RELOAD_SERVICE = new ConfigReloadService();
 
-    public static DebianConfigReloadService getReloadService() {
+    public static ConfigReloadService getReloadService() {
         return RELOAD_SERVICE;
     }
 
@@ -76,7 +76,7 @@ public class DebianConfigRecorder {
         }
 
         Path socketPath = Path.of(socketPathStr);
-        DebianControlSocketServer server = new DebianControlSocketServer(socketPath, RELOAD_SERVICE);
+        ControlSocketServer server = new ControlSocketServer(socketPath, RELOAD_SERVICE);
         if (server.start()) {
             shutdownContext.addShutdownTask(server::close);
         }

@@ -94,6 +94,7 @@ public class QuarkusDebianPackagingProdModeTest {
         String startup = data.get("usr/share/prod-deb-app/startup");
         assertTrue(startup.contains("exec \"${JAVA}\" -jar"));
         assertTrue(startup.contains("/usr/share/prod-deb-app/quarkus-run.jar"));
+        assertFalse(startup.contains("${quarkusRunner}"), "Startup template variables must be resolved");
         assertFalse(startup.contains("${mainExecutable}"), "Startup template variables must be resolved");
         assertFalse(startup.contains("${jvmOptionsFile}"), "Startup template variables must be resolved");
         assertTrue(data.get("etc/default/prod-deb-app")

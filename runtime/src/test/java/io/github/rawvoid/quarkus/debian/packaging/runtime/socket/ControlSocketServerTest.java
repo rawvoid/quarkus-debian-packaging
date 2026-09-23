@@ -35,10 +35,10 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import io.github.rawvoid.quarkus.debian.packaging.runtime.config.DebianConfigReloadService;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.DebianExternalConfigSource;
 
-class DebianControlSocketTest {
+class ControlSocketServerTest {
 
     @TempDir
     Path tempDir;
@@ -50,9 +50,9 @@ class DebianControlSocketTest {
         Files.writeString(configFile, "greeting=hello\n");
 
         new DebianExternalConfigSource(configFile);
-        var reloadService = new DebianConfigReloadService();
+        var reloadService = new ConfigReloadService();
 
-        try (var server = new DebianControlSocketServer(socketPath, reloadService)) {
+        try (var server = new ControlSocketServer(socketPath, reloadService)) {
             boolean started = server.start();
             assertTrue(started, "Server should start successfully");
             assertTrue(Files.exists(socketPath), "Socket file should be created");
@@ -68,8 +68,8 @@ class DebianControlSocketTest {
                 assertTrue(response.startsWith("OK"), "Expected OK response, got: " + response);
             }
 
-            // Test RELOAD command via DebianReloadClient
-            int reloadExitCode = DebianReloadClient.executeReload(socketPath);
+            // Test RELOAD command via ControlSocketClient
+            int reloadExitCode = ControlSocketClient.executeReload(socketPath);
             assertEquals(0, reloadExitCode, "Reload should succeed with exit code 0");
         }
 
@@ -80,7 +80,7 @@ class DebianControlSocketTest {
     @Test
     void testReloadClientFailureWhenSocketMissing() {
         Path nonExistentSocket = tempDir.resolve("missing.sock");
-        int exitCode = DebianReloadClient.executeReload(nonExistentSocket);
+        int exitCode = ControlSocketClient.executeReload(nonExistentSocket);
         assertEquals(1, exitCode, "Missing socket should return exit code 1");
     }
 }

@@ -19,7 +19,7 @@ package io.github.rawvoid.quarkus.debian.packaging.deployment;
 import java.util.List;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.runtime.DebianConfigRecorder;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
@@ -33,12 +33,12 @@ import io.quarkus.runtime.annotations.ConfigRoot;
  *
  * @author rawvoid
  */
-public class DebianConfigProcessor {
+public class ConfigReloadProcessor {
 
     @BuildStep(onlyIf = DebianEnabled.class)
     @Record(ExecutionTime.RUNTIME_INIT)
     public void setupConfigReload(
-            DebianConfigRecorder recorder,
+            ConfigReloadRecorder recorder,
             ShutdownContextBuildItem shutdownContext,
             DebianPackagingConfig config,
             ApplicationInfoBuildItem appInfo,

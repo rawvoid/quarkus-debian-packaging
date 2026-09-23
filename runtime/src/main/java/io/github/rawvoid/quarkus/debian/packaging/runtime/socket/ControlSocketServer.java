@@ -34,25 +34,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.logging.Logger;
 
-import io.github.rawvoid.quarkus.debian.packaging.runtime.config.DebianConfigReloadService;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
 
 /**
  * UNIX domain socket server listening for reload control commands from systemd or the launcher CLI.
  *
  * @author rawvoid
  */
-public class DebianControlSocketServer implements AutoCloseable {
+public class ControlSocketServer implements AutoCloseable {
 
-    private static final Logger LOG = Logger.getLogger(DebianControlSocketServer.class);
+    private static final Logger LOG = Logger.getLogger(ControlSocketServer.class);
 
     private final Path socketPath;
-    private final DebianConfigReloadService reloadService;
+    private final ConfigReloadService reloadService;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     private ServerSocketChannel serverChannel;
     private Thread listenerThread;
 
-    public DebianControlSocketServer(Path socketPath, DebianConfigReloadService reloadService) {
+    public ControlSocketServer(Path socketPath, ConfigReloadService reloadService) {
         this.socketPath = Objects.requireNonNull(socketPath, "socketPath");
         this.reloadService = Objects.requireNonNull(reloadService, "reloadService");
     }
@@ -75,10 +75,10 @@ public class DebianControlSocketServer implements AutoCloseable {
             listenerThread = new Thread(this::listenLoop, "debian-control-socket");
             listenerThread.setDaemon(true);
             listenerThread.start();
-            LOG.info("Debian control socket listening on " + socketPath);
+            LOG.info("Control socket listening on " + socketPath);
             return true;
         } catch (Exception e) {
-            LOG.warn("Could not bind Debian control socket on " + socketPath + " (" + e.getMessage()
+            LOG.warn("Could not bind control socket on " + socketPath + " (" + e.getMessage()
                     + "). Reload via 'systemctl reload' will be unavailable.");
             return false;
         }
@@ -117,7 +117,7 @@ public class DebianControlSocketServer implements AutoCloseable {
                     writer.println("ERROR " + result.message());
                 }
             } else if ("STATUS".equalsIgnoreCase(command)) {
-                writer.println("OK Debian Control Socket Server is running on " + socketPath);
+                writer.println("OK Control Socket Server is running on " + socketPath);
             } else {
                 writer.println("ERROR Unknown command: " + command);
             }

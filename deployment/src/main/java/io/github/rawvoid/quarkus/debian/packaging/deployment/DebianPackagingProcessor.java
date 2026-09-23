@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import org.jboss.logging.Logger;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.deployment.builder.DebPackager;
+import io.github.rawvoid.quarkus.debian.packaging.deployment.builder.DebianPackageAssembler;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.DebianPackageModel;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.PackagePayload;
 import io.quarkus.deployment.IsProduction;
@@ -40,9 +40,9 @@ import io.quarkus.deployment.pkg.steps.NativeBuild;
  *
  * @author rawvoid
  */
-class QuarkusDebianPackagingProcessor {
+class DebianPackagingProcessor {
 
-    private static final Logger LOG = Logger.getLogger(QuarkusDebianPackagingProcessor.class);
+    private static final Logger LOG = Logger.getLogger(DebianPackagingProcessor.class);
 
     /**
      * Produce {@link ArtifactResultBuildItem} only as a pseudo-target so this step always runs in production
@@ -78,7 +78,7 @@ class QuarkusDebianPackagingProcessor {
             OutputTargetBuildItem outputTarget,
             PackagePayload payload) {
         DebianPackageModel model = DebianPackageModel.resolve(config, applicationInfo, outputTarget, payload);
-        Path deb = DebPackager.packageDeb(model);
+        Path deb = DebianPackageAssembler.assemble(model);
         LOG.debugf(
                 "Debian package model: name=%s version=%s arch=%s payload=%s path=%s",
                 model.packageName(),

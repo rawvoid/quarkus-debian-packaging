@@ -49,7 +49,7 @@ import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
  *
  * @author rawvoid
  */
-class DebPackagerPayloadTest {
+class DebianPackageAssemblerTest {
 
     @TempDir
     Path tempDir;
@@ -59,7 +59,7 @@ class DebPackagerPayloadTest {
         Path runner = tempDir.resolve("demo-runner.jar");
         Files.writeString(runner, "uber-content");
 
-        Path deb = DebPackager.packageDeb(model("uber-demo", PackagePayload.uberJar(runner), Optional.empty()));
+        Path deb = DebianPackageAssembler.assemble(model("uber-demo", PackagePayload.uberJar(runner), Optional.empty()));
         Map<String, TarMember> data = readDataMembers(deb);
 
         assertTrue(data.containsKey("usr/share/uber-demo/demo-runner.jar"));
@@ -87,7 +87,7 @@ class DebPackagerPayloadTest {
         Files.writeString(runner, "legacy");
         Files.writeString(lib.resolve("dep.jar"), "dep");
 
-        Path deb = DebPackager.packageDeb(model("legacy-demo", PackagePayload.legacyJar(runner, lib), Optional.empty()));
+        Path deb = DebianPackageAssembler.assemble(model("legacy-demo", PackagePayload.legacyJar(runner, lib), Optional.empty()));
         Map<String, TarMember> data = readDataMembers(deb);
 
         assertTrue(data.containsKey("usr/share/legacy-demo/legacy-runner.jar"));
@@ -101,7 +101,7 @@ class DebPackagerPayloadTest {
         Path binary = tempDir.resolve("native-demo-runner");
         Files.writeString(binary, "native-bin");
 
-        Path deb = DebPackager.packageDeb(
+        Path deb = DebianPackageAssembler.assemble(
                 model("native-demo", PackagePayload.nativeImage(binary), Optional.of("amd64")));
         Map<String, TarMember> data = readDataMembers(deb);
         Map<String, String> control = readControlStrings(deb);
@@ -119,7 +119,7 @@ class DebPackagerPayloadTest {
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
 
         String startup = new String(data.get("usr/share/native-demo/startup").content(), StandardCharsets.UTF_8);
-        assertTrue(startup.contains("exec \"${MAIN_EXECUTABLE}\"")
+        assertTrue(startup.contains("exec \"${QUARKUS_RUNNER}\"")
                 || startup.contains("/usr/share/native-demo/native-demo-runner"));
         assertFalse(startup.contains("java -jar"));
 
@@ -133,7 +133,7 @@ class DebPackagerPayloadTest {
     void jvmPrermClearsHsPerfData() throws Exception {
         Path runner = tempDir.resolve("demo-runner.jar");
         Files.writeString(runner, "uber");
-        Path deb = DebPackager.packageDeb(model("jvm-demo", PackagePayload.uberJar(runner), Optional.empty()));
+        Path deb = DebianPackageAssembler.assemble(model("jvm-demo", PackagePayload.uberJar(runner), Optional.empty()));
         Map<String, String> control = readControlStrings(deb);
         assertTrue(control.get("prerm").contains("hsperfdata_jvm-demo"));
     }

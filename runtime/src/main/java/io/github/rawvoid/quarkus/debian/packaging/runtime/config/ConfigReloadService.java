@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import jakarta.enterprise.inject.spi.CDI;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.spi.ConfigSource;
 import org.jboss.logging.Logger;
@@ -43,9 +44,9 @@ import io.smallrye.config.SmallRyeConfigBuilder;
  *
  * @author rawvoid
  */
-public class DebianConfigReloadService {
+public class ConfigReloadService {
 
-    private static final Logger LOG = Logger.getLogger(DebianConfigReloadService.class);
+    private static final Logger LOG = Logger.getLogger(ConfigReloadService.class);
 
     public record ReloadResult(boolean success, String message, int updatedCount) {}
 
@@ -192,15 +193,15 @@ public class DebianConfigReloadService {
 
     private static void fireReloadedEvent(Path configFile, Map<String, String> props, Set<String> changedKeys) {
         try {
-            jakarta.enterprise.inject.spi.CDI<Object> cdi = jakarta.enterprise.inject.spi.CDI.current();
+            CDI<Object> cdi = CDI.current();
             if (cdi != null) {
-                var event = new DebianConfigReloadedEvent(configFile, Instant.now(), props, changedKeys);
-                cdi.getBeanManager().getEvent().select(DebianConfigReloadedEvent.class).fire(event);
-                LOG.debugf("Fired DebianConfigReloadedEvent for %s", configFile);
+                var event = new ConfigReloadedEvent(configFile, Instant.now(), props, changedKeys);
+                cdi.getBeanManager().getEvent().select(ConfigReloadedEvent.class).fire(event);
+                LOG.debugf("Fired ConfigReloadedEvent for %s", configFile);
             }
         } catch (Throwable t) {
             // CDI container not initialized or Arc not present
-            LOG.debugf("Could not fire DebianConfigReloadedEvent: %s", t.getMessage());
+            LOG.debugf("Could not fire ConfigReloadedEvent: %s", t.getMessage());
         }
     }
 

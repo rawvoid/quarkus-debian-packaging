@@ -35,7 +35,7 @@ import io.quarkus.runtime.configuration.ConfigUtils;
 import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
 
-class DebianConfigReloadServiceTest {
+class ConfigReloadServiceTest {
 
     @TempDir
     Path tempDir;
@@ -60,7 +60,7 @@ class DebianConfigReloadServiceTest {
         Files.writeString(configFile, "scoot.http.connect-timeout=10s\n");
 
         var configSource = new DebianExternalConfigSource(configFile);
-        var reloadService = new DebianConfigReloadService();
+        var reloadService = new ConfigReloadService();
 
         var result = reloadService.reload();
         assertTrue(result.success());
