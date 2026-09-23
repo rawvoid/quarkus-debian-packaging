@@ -4,7 +4,7 @@ import socket
 import sys
 
 def main():
-    socket_file = sys.argv[1] if len(sys.argv) > 1 else "/run/${packageName}/control.sock"
+    socket_file = sys.argv[1] if len(sys.argv) > 1 else "${socketPath}"
     if not os.path.exists(socket_file):
         sys.stderr.write(f"Error: Control socket not found: {socket_file}. Is ${systemdServiceName} running?\n")
         sys.exit(1)
@@ -14,7 +14,13 @@ def main():
             s.settimeout(10.0)
             s.connect(socket_file)
             s.sendall(b"RELOAD\n")
-            data = s.recv(4096).decode("utf-8", errors="replace")
+            chunks = []
+            while True:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            data = b"".join(chunks).decode("utf-8", errors="replace")
             if data.startswith("OK"):
                 sys.stdout.write(data)
                 sys.exit(0)

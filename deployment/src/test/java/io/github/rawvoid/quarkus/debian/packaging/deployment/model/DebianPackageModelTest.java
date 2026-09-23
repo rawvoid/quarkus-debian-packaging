@@ -141,6 +141,38 @@ class DebianPackageModelTest {
         assertTrue(enabled.reloadEnabled());
     }
 
+    @Test
+    void resolvesDefaultAndCustomSocketPath() {
+        DebianPackageModel modelDefault = DebianPackageModel.resolve(
+                configWithName("my-app"),
+                reloadConfig(true),
+                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
+                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
+                payload());
+        assertEquals("/run/my-app/control.sock", modelDefault.socketPath());
+        assertEquals("/run/my-app/control.sock", modelDefault.templateVariables().get("socketPath"));
+
+        ReloadConfig customSocketConfig = new ReloadConfig() {
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+
+            @Override
+            public Optional<String> socketPath() {
+                return Optional.of("/var/run/custom.sock");
+            }
+        };
+        DebianPackageModel modelCustom = DebianPackageModel.resolve(
+                configWithName("my-app"),
+                customSocketConfig,
+                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
+                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
+                payload());
+        assertEquals("/var/run/custom.sock", modelCustom.socketPath());
+        assertEquals("/var/run/custom.sock", modelCustom.templateVariables().get("socketPath"));
+    }
+
     private DebianPackageModel resolve(DebianPackagingConfig config, PackagePayload payload) {
         return DebianPackageModel.resolve(
                 config,

@@ -101,6 +101,13 @@ class ExternalConfigSourceTest {
         source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-fallback-app/application.properties"), source.getConfigFile());
 
+        // 2b. Fallback to quarkus.application.name with underscores and uppercase (sanitized)
+        var unsanitizedContext = createContext(Map.of("quarkus.application.name", "My_Custom_App"));
+        sources = factory.getConfigSources(unsanitizedContext).iterator();
+        assertTrue(sources.hasNext());
+        source = (ExternalConfigSource) sources.next();
+        assertEquals(Path.of("/etc/my-custom-app/application.properties"), source.getConfigFile());
+
         // 3. Custom config file override
         var customFileContext = createContext(Map.of(
                 "quarkus.debian.name", "my-app",

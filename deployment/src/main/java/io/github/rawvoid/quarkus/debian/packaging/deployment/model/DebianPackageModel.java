@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
@@ -55,6 +56,7 @@ public record DebianPackageModel(
         String serviceGroup,
         String systemdServiceName,
         String systemdUnitFile,
+        String socketPath,
         boolean reloadEnabled,
         Path outputFile,
         PackagePayload payload) {
@@ -136,6 +138,10 @@ public record DebianPackageModel(
         String jvmOptionsFile = configDir + "/" + DEFAULT_JVM_OPTIONS_FILENAME;
         String quarkusRunner = installDir + "/" + payload.mainRelativePath();
 
+        String defaultSocketPath = "/run/" + packageName + "/control.sock";
+        String socketPath = normalizeAbsolutePath(
+                reloadConfig.socketPath().filter(s -> !s.isBlank()).orElse(defaultSocketPath));
+
         String outputName = config.outputName().orElse(packageName + "_" + version + "_" + architecture + DEB_EXTENSION);
         Path outputFile = outputTarget.getOutputDirectory().resolve(outputName);
 
@@ -161,6 +167,7 @@ public record DebianPackageModel(
                 serviceGroup,
                 systemdServiceName,
                 systemdUnitFile,
+                socketPath,
                 reloadConfig.enabled(),
                 outputFile,
                 payload);
@@ -191,6 +198,7 @@ public record DebianPackageModel(
         vars.put("serviceGroup", serviceGroup);
         vars.put("systemdServiceName", systemdServiceName);
         vars.put("systemdUnitFile", systemdUnitFile);
+        vars.put("socketPath", socketPath);
         return vars;
     }
 
@@ -200,19 +208,7 @@ public record DebianPackageModel(
      * and strips leading/trailing hyphens. The result is still validated against Policy.
      */
     static String sanitizePackageName(String raw) {
-        if (raw == null || raw.isBlank() || ApplicationInfoBuildItem.UNSET_VALUE.equals(raw)) {
-            throw new IllegalArgumentException(
-                    "Debian package name is unset. Configure quarkus.application.name or quarkus.debian.name.");
-        }
-        String name = raw.trim().toLowerCase(Locale.ROOT);
-        name = name.replace('_', '-');
-        name = name.replaceAll("\\s+", "-");
-        // Drop characters outside the Debian package name alphabet (keep [a-z0-9+.-]).
-        name = name.replaceAll("[^a-z0-9+.-]+", "-");
-        name = name.replaceAll("-{2,}", "-");
-        name = name.replaceAll("^-+", "");
-        name = name.replaceAll("-+$", "");
-        return name;
+        return DebianPackageNames.sanitize(raw);
     }
 
     /**
