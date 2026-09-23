@@ -32,14 +32,14 @@ import java.nio.file.Path;
  *
  * @author rawvoid
  */
-public final class DebianReloadClient {
+public final class ControlSocketClient {
 
-    private DebianReloadClient() {
+    private ControlSocketClient() {
     }
 
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.err.println("Usage: DebianReloadClient <socket-path>");
+            System.err.println("Usage: ControlSocketClient <socket-path>");
             System.exit(1);
         }
 
@@ -65,7 +65,7 @@ public final class DebianReloadClient {
 
             String response = reader.readLine();
             if (response == null) {
-                System.err.println("Error: Empty response from Debian control socket");
+                System.err.println("Error: Empty response from control socket");
                 return 1;
             }
 
@@ -77,7 +77,7 @@ public final class DebianReloadClient {
                 return 1;
             }
         } catch (Exception e) {
-            System.err.println("Error: Failed to connect to Debian control socket (" + socketPath + "): " + e.getMessage());
+            System.err.println("Error: Failed to connect to control socket (" + socketPath + "): " + e.getMessage());
             return 1;
         }
     }

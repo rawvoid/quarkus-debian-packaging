@@ -40,9 +40,9 @@ import io.quarkus.deployment.pkg.steps.NativeBuild;
  *
  * @author rawvoid
  */
-class QuarkusDebianPackagingProcessor {
+class DebianPackagingProcessor {
 
-    private static final Logger LOG = Logger.getLogger(QuarkusDebianPackagingProcessor.class);
+    private static final Logger LOG = Logger.getLogger(DebianPackagingProcessor.class);
 
     /**
      * Produce {@link ArtifactResultBuildItem} only as a pseudo-target so this step always runs in production

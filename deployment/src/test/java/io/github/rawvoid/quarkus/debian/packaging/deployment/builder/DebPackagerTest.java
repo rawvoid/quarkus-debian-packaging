@@ -49,7 +49,7 @@ import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
  *
  * @author rawvoid
  */
-class DebPackagerPayloadTest {
+class DebPackagerTest {
 
     @TempDir
     Path tempDir;
@@ -119,7 +119,7 @@ class DebPackagerPayloadTest {
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
 
         String startup = new String(data.get("usr/share/native-demo/startup").content(), StandardCharsets.UTF_8);
-        assertTrue(startup.contains("exec \"${MAIN_EXECUTABLE}\"")
+        assertTrue(startup.contains("exec \"${QUARKUS_RUNNER}\"")
                 || startup.contains("/usr/share/native-demo/native-demo-runner"));
         assertFalse(startup.contains("java -jar"));
 

@@ -27,7 +27,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.runtime.DebianConfigRecorder;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.builditem.ConfigMappingBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
@@ -36,7 +36,7 @@ import io.quarkus.runtime.annotations.ConfigPhase;
 import io.quarkus.runtime.annotations.ConfigRoot;
 import io.smallrye.config.ConfigMapping;
 
-class DebianConfigProcessorTest {
+class ConfigReloadProcessorTest {
 
     @ConfigMapping(prefix = "app.business")
     interface BusinessConfig {
@@ -67,7 +67,7 @@ class DebianConfigProcessorTest {
     @Test
     void testSetupConfigReloadExcludesFrameworkMappings() {
         var recordedMappings = new ArrayList<String>();
-        var recorder = new DebianConfigRecorder() {
+        var recorder = new ConfigReloadRecorder() {
             @Override
             public void registerMapping(String className, String prefix) {
                 recordedMappings.add(className);
@@ -90,7 +90,7 @@ class DebianConfigProcessorTest {
         var frameworkRootPrefixMapping = new ConfigMappingBuildItem(FrameworkRootPrefixConfig.class, "quarkus");
         var quarkusPackageMapping = new ConfigMappingBuildItem(io.quarkus.runtime.ConfigConfig.class, "quarkus");
 
-        var processor = new DebianConfigProcessor();
+        var processor = new ConfigReloadProcessor();
         processor.setupConfigReload(recorder, shutdownContext, config, appInfo, List.of(
                 businessMapping,
                 appWithDashMapping,

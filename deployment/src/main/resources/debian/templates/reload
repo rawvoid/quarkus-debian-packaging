@@ -6,7 +6,7 @@ import sys
 def main():
     socket_file = sys.argv[1] if len(sys.argv) > 1 else "/run/${packageName}/control.sock"
     if not os.path.exists(socket_file):
-        sys.stderr.write(f"Error: Debian control socket not found: {socket_file}. Is ${systemdServiceName} running?\n")
+        sys.stderr.write(f"Error: Control socket not found: {socket_file}. Is ${systemdServiceName} running?\n")
         sys.exit(1)
 
     try:
@@ -22,7 +22,7 @@ def main():
                 sys.stderr.write(data if data else "Error: Empty response from reload server\n")
                 sys.exit(1)
     except Exception as e:
-        sys.stderr.write(f"Error communicating with Debian control socket ({socket_file}): {e}\n")
+        sys.stderr.write(f"Error communicating with control socket ({socket_file}): {e}\n")
         sys.exit(1)
 
 if __name__ == "__main__":

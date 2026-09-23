@@ -71,7 +71,7 @@ class DebianPackageModelTest {
     void stripsTrailingSlashesFromConfiguredPaths() {
         DebianPackageModel model = resolve(configWithInstallDir("myapp", "/usr/share/myapp/"), payload());
         assertEquals("/usr/share/myapp", model.installDir());
-        assertEquals("/usr/share/myapp/app-runner.jar", model.mainExecutable());
+        assertEquals("/usr/share/myapp/app-runner.jar", model.quarkusRunner());
     }
 
     @Test

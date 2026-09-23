@@ -32,12 +32,12 @@ import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
 
 /**
- * Discovers and registers {@link DebianExternalConfigSource} at application bootstrap
+ * Discovers and registers {@link ExternalConfigSource} at application bootstrap
  * using typed {@link DebianPackagingConfig} mapping.
  *
  * @author rawvoid
  */
-public class DebianConfigSourceFactory implements ConfigurableConfigSourceFactory<DebianPackagingConfig> {
+public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFactory<DebianPackagingConfig> {
 
     @Override
     public OptionalInt getPriority() {
@@ -83,7 +83,7 @@ public class DebianConfigSourceFactory implements ConfigurableConfigSourceFactor
             }
         }
 
-        return Collections.singletonList(new DebianExternalConfigSource(configFilePath));
+        return Collections.singletonList(new ExternalConfigSource(configFilePath));
     }
 
     private static List<String> safeGetProfiles(ConfigSourceContext context) {

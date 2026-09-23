@@ -26,7 +26,7 @@ import jakarta.ws.rs.Path;
  */
 @Path("/quarkus-debian-packaging")
 @ApplicationScoped
-public class QuarkusDebianPackagingResource {
+public class DebianPackagingResource {
     // add some rest methods here
 
     @GET

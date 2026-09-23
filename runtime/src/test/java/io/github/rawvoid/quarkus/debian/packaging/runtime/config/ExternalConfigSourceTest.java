@@ -29,7 +29,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class DebianExternalConfigSourceTest {
+import io.smallrye.config.ConfigSourceContext;
+import io.smallrye.config.ConfigValue;
+
+class ExternalConfigSourceTest {
 
     @TempDir
     Path tempDir;
@@ -37,7 +40,7 @@ class DebianExternalConfigSourceTest {
     @Test
     void testOrdinalAndDefaults() {
         Path dummyPath = tempDir.resolve("non-existent.properties");
-        DebianExternalConfigSource source = new DebianExternalConfigSource(dummyPath);
+        ExternalConfigSource source = new ExternalConfigSource(dummyPath);
 
         assertEquals(275, source.getOrdinal());
         assertTrue(source.getPropertyNames().isEmpty());
@@ -50,7 +53,7 @@ class DebianExternalConfigSourceTest {
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "app.timeout=30s\napp.greeting=Hello World\n");
 
-        DebianExternalConfigSource source = new DebianExternalConfigSource(configFile);
+        ExternalConfigSource source = new ExternalConfigSource(configFile);
         assertEquals("30s", source.getValue("app.timeout"));
         assertEquals("Hello World", source.getValue("app.greeting"));
 
@@ -62,7 +65,7 @@ class DebianExternalConfigSourceTest {
 
     @Test
     void testFactoryRespectsDisabledSwitch() {
-        var factory = new DebianConfigSourceFactory();
+        var factory = new ExternalConfigSourceFactory();
 
         var disabledContext = createContext(Map.of("quarkus.debian.enabled", "false"));
         assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
@@ -70,20 +73,20 @@ class DebianExternalConfigSourceTest {
 
     @Test
     void testFactoryResolvesConfigFilePath() {
-        var factory = new DebianConfigSourceFactory();
+        var factory = new ExternalConfigSourceFactory();
 
         // 1. Explicit debian package name
         var nameContext = createContext(Map.of("quarkus.debian.name", "my-app"));
         var sources = factory.getConfigSources(nameContext).iterator();
         assertTrue(sources.hasNext());
-        var source = (DebianExternalConfigSource) sources.next();
+        var source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-app/application.properties"), source.getConfigFile());
 
         // 2. Fallback to quarkus.application.name
         var fallbackContext = createContext(Map.of("quarkus.application.name", "my-fallback-app"));
         sources = factory.getConfigSources(fallbackContext).iterator();
         assertTrue(sources.hasNext());
-        source = (DebianExternalConfigSource) sources.next();
+        source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-fallback-app/application.properties"), source.getConfigFile());
 
         // 3. Custom config file override
@@ -92,7 +95,7 @@ class DebianExternalConfigSourceTest {
                 "quarkus.debian.config-file", "/opt/custom/config.properties"));
         sources = factory.getConfigSources(customFileContext).iterator();
         assertTrue(sources.hasNext());
-        source = (DebianExternalConfigSource) sources.next();
+        source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/opt/custom/config.properties"), source.getConfigFile());
 
         // 4. Custom config directory
@@ -101,7 +104,7 @@ class DebianExternalConfigSourceTest {
                 "quarkus.debian.config-dir", "/var/etc/my-app"));
         sources = factory.getConfigSources(customDirContext).iterator();
         assertTrue(sources.hasNext());
-        source = (DebianExternalConfigSource) sources.next();
+        source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/var/etc/my-app/application.properties"), source.getConfigFile());
 
         // 5. Missing package name and app name
@@ -109,12 +112,12 @@ class DebianExternalConfigSourceTest {
         assertFalse(factory.getConfigSources(emptyContext).iterator().hasNext());
     }
 
-    private static io.smallrye.config.ConfigSourceContext createContext(Map<String, String> properties) {
-        return new io.smallrye.config.ConfigSourceContext() {
+    private static ConfigSourceContext createContext(Map<String, String> properties) {
+        return new ConfigSourceContext() {
             @Override
-            public io.smallrye.config.ConfigValue getValue(String name) {
+            public ConfigValue getValue(String name) {
                 String val = properties.get(name);
-                return val != null ? io.smallrye.config.ConfigValue.builder().withName(name).withValue(val).build() : null;
+                return val != null ? ConfigValue.builder().withName(name).withValue(val).build() : null;
             }
 
             @Override

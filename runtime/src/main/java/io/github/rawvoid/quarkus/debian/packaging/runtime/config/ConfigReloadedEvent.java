@@ -32,13 +32,13 @@ import java.util.Set;
  *
  * @author rawvoid
  */
-public record DebianConfigReloadedEvent(
+public record ConfigReloadedEvent(
         Path configFile,
         Instant timestamp,
         Map<String, String> properties,
         Set<String> changedKeys) {
 
-    public DebianConfigReloadedEvent {
+    public ConfigReloadedEvent {
         properties = properties != null ? Collections.unmodifiableMap(properties) : Collections.emptyMap();
         changedKeys = changedKeys != null ? Collections.unmodifiableSet(changedKeys) : Collections.emptySet();
     }

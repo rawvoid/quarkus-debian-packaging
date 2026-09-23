@@ -49,7 +49,7 @@ public record DebianPackageModel(
         String jvmOptionsFile,
         String defaultsFile,
         String executableFile,
-        String mainExecutable,
+        String quarkusRunner,
         String serviceUser,
         String serviceGroup,
         String systemdServiceName,
@@ -121,7 +121,7 @@ public record DebianPackageModel(
         String configFile = normalizeAbsolutePath(
                 config.configFile().orElse(configDir + "/application.properties"), "quarkus.debian.config-file");
         String jvmOptionsFile = configDir + "/jvm.options";
-        String mainExecutable = installDir + "/" + payload.mainRelativePath();
+        String quarkusRunner = installDir + "/" + payload.mainRelativePath();
 
         String outputName = config.outputName().orElse(packageName + "_" + version + "_" + architecture + ".deb");
         Path outputFile = outputTarget.getOutputDirectory().resolve(outputName);
@@ -143,7 +143,7 @@ public record DebianPackageModel(
                 jvmOptionsFile,
                 defaultsFile,
                 executableFile,
-                mainExecutable,
+                quarkusRunner,
                 serviceUser,
                 serviceGroup,
                 systemdServiceName,
@@ -171,7 +171,8 @@ public record DebianPackageModel(
         vars.put("defaultsFile", defaultsFile);
         vars.put("executableFile", executableFile);
         vars.put("binFile", executableFile);
-        vars.put("mainExecutable", mainExecutable);
+        vars.put("quarkusRunner", quarkusRunner);
+        vars.put("mainExecutable", quarkusRunner);
         vars.put("serviceUser", serviceUser);
         vars.put("serviceGroup", serviceGroup);
         vars.put("systemdServiceName", systemdServiceName);

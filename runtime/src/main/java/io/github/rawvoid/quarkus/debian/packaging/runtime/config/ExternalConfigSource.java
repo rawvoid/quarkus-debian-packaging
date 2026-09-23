@@ -33,29 +33,29 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.microprofile.config.spi.ConfigSource;
 
 /**
- * MicroProfile ConfigSource that bridges external Debian properties from {@code /etc/${packageName}/application.properties}.
+ * MicroProfile ConfigSource that bridges external properties from {@code /etc/${packageName}/application.properties}.
  * <p>
  * Configured with Ordinal 275 (higher than internal {@code application.properties} at 250, but lower than environment
  * variables at 300).
  *
  * @author rawvoid
  */
-public class DebianExternalConfigSource implements ConfigSource {
+public class ExternalConfigSource implements ConfigSource {
 
     public static final int ORDINAL = 275;
-    private static volatile DebianExternalConfigSource instance;
+    private static volatile ExternalConfigSource instance;
 
     private final Path configFile;
     private final AtomicReference<Map<String, String>> currentProperties;
 
-    public DebianExternalConfigSource(Path configFile) {
+    public ExternalConfigSource(Path configFile) {
         this.configFile = Objects.requireNonNull(configFile, "configFile");
         Map<String, String> initialProps = loadFromFile(configFile);
         this.currentProperties = new AtomicReference<>(Collections.unmodifiableMap(initialProps));
         instance = this;
     }
 
-    public static DebianExternalConfigSource getInstance() {
+    public static ExternalConfigSource getInstance() {
         return instance;
     }
 
@@ -70,7 +70,7 @@ public class DebianExternalConfigSource implements ConfigSource {
 
     @Override
     public String getName() {
-        return "DebianExternalConfigSource[" + configFile + "]";
+        return "ExternalConfigSource[" + configFile + "]";
     }
 
     @Override

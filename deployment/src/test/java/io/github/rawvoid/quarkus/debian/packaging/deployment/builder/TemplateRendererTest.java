@@ -73,19 +73,19 @@ class TemplateRendererTest {
     void rendersJvmStartupScript() {
         String startup = TemplateRenderer.render("startup-jvm.sh", Map.of(
                 "jvmOptionsFile", "/etc/demo/jvm.options",
-                "mainExecutable", "/usr/share/demo/quarkus-run.jar"));
-        assertTrue(startup.contains("MAIN_JAR=\"/usr/share/demo/quarkus-run.jar\""));
+                "quarkusRunner", "/usr/share/demo/quarkus-run.jar"));
+        assertTrue(startup.contains("QUARKUS_RUNNER=\"/usr/share/demo/quarkus-run.jar\""));
         assertTrue(startup.contains("JVM_OPTIONS_FILE=\"/etc/demo/jvm.options\""));
         assertTrue(startup.contains("JDK_JAVA_OPTIONS"));
-        assertTrue(startup.contains("exec \"${JAVA}\" -jar \"${MAIN_JAR}\" \"$@\""));
+        assertTrue(startup.contains("exec \"${JAVA}\" -jar \"${QUARKUS_RUNNER}\" \"$@\""));
     }
 
     @Test
     void rendersNativeStartupScript() {
         String startup = TemplateRenderer.render("startup-native.sh", Map.of(
-                "mainExecutable", "/usr/share/demo/demo-runner"));
-        assertTrue(startup.contains("MAIN_EXECUTABLE=\"/usr/share/demo/demo-runner\""));
-        assertTrue(startup.contains("exec \"${MAIN_EXECUTABLE}\" \"$@\""));
+                "quarkusRunner", "/usr/share/demo/demo-runner"));
+        assertTrue(startup.contains("QUARKUS_RUNNER=\"/usr/share/demo/demo-runner\""));
+        assertTrue(startup.contains("exec \"${QUARKUS_RUNNER}\" \"$@\""));
     }
 
     @Test
@@ -161,7 +161,7 @@ class TemplateRendererTest {
         Path startupScript = tempDir.resolve("startup");
         Files.writeString(startupScript, TemplateRenderer.render("startup-jvm.sh", Map.of(
                 "jvmOptionsFile", jvmOptions.toString(),
-                "mainExecutable", mainJar.toString())));
+                "quarkusRunner", mainJar.toString())));
         setPosixExecutable(startupScript);
 
         String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
@@ -207,7 +207,7 @@ class TemplateRendererTest {
 
         Path startupScript = tempDir.resolve("startup");
         Files.writeString(startupScript, TemplateRenderer.render("startup-native.sh", Map.of(
-                "mainExecutable", mockRunner.toString())));
+                "quarkusRunner", mockRunner.toString())));
         setPosixExecutable(startupScript);
 
         String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
@@ -276,7 +276,7 @@ class TemplateRendererTest {
         Path startupScript = tempDir.resolve("startup");
         Files.writeString(startupScript, TemplateRenderer.render("startup-jvm.sh", Map.of(
                 "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
-                "mainExecutable", mainJar.toString())));
+                "quarkusRunner", mainJar.toString())));
         setPosixExecutable(startupScript);
 
         String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
@@ -315,7 +315,7 @@ class TemplateRendererTest {
         Path startupScript = tempDir.resolve("startup");
         Files.writeString(startupScript, TemplateRenderer.render("startup-jvm.sh", Map.of(
                 "jvmOptionsFile", tempDir.resolve("jvm.options").toString(),
-                "mainExecutable", mainJar.toString())));
+                "quarkusRunner", mainJar.toString())));
         setPosixExecutable(startupScript);
 
         String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(

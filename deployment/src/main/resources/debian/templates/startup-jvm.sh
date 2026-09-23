@@ -2,7 +2,7 @@
 set -eu
 
 JVM_OPTIONS_FILE="${jvmOptionsFile}"
-MAIN_JAR="${mainExecutable}"
+QUARKUS_RUNNER="${quarkusRunner}"
 
 if [ -n "${JAVA_HOME:-}" ]; then
     PATH="${JAVA_HOME}/bin:${PATH}"
@@ -31,4 +31,4 @@ if [ -f "${JVM_OPTIONS_FILE}" ]; then
     fi
 fi
 
-exec "${JAVA}" -jar "${MAIN_JAR}" "$@"
+exec "${JAVA}" -jar "${QUARKUS_RUNNER}" "$@"
