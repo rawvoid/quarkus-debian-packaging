@@ -43,6 +43,11 @@ import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadSer
  */
 public class ControlSocketServer implements AutoCloseable {
 
+    public static final String CMD_RELOAD = "RELOAD";
+    public static final String CMD_STATUS = "STATUS";
+    public static final String PREFIX_OK = "OK ";
+    public static final String PREFIX_ERROR = "ERROR ";
+
     private static final Logger LOG = Logger.getLogger(ControlSocketServer.class);
 
     private final Path socketPath;
@@ -109,17 +114,17 @@ public class ControlSocketServer implements AutoCloseable {
             }
 
             command = command.trim();
-            if ("RELOAD".equalsIgnoreCase(command)) {
+            if (CMD_RELOAD.equalsIgnoreCase(command)) {
                 var result = reloadService.reload();
                 if (result.success()) {
-                    writer.println("OK " + result.message());
+                    writer.println(PREFIX_OK + result.message());
                 } else {
-                    writer.println("ERROR " + result.message());
+                    writer.println(PREFIX_ERROR + result.message());
                 }
-            } else if ("STATUS".equalsIgnoreCase(command)) {
-                writer.println("OK Control Socket Server is running on " + socketPath);
+            } else if (CMD_STATUS.equalsIgnoreCase(command)) {
+                writer.println(PREFIX_OK + "Control Socket Server is running on " + socketPath);
             } else {
-                writer.println("ERROR Unknown command: " + command);
+                writer.println(PREFIX_ERROR + "Unknown command: " + command);
             }
         } catch (Exception e) {
             LOG.debug("Error handling control socket client: " + e.getMessage());

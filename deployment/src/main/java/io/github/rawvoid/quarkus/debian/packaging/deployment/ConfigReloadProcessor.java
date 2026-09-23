@@ -35,6 +35,13 @@ import io.quarkus.runtime.annotations.ConfigRoot;
  */
 public class ConfigReloadProcessor {
 
+    private static final String DEFAULT_PACKAGE_NAME = "quarkus-app";
+    private static final String DEFAULT_SOCKET_DIR = "/run/";
+    private static final String CONTROL_SOCKET_FILENAME = "control.sock";
+    private static final String QUARKUS_PREFIX = "quarkus";
+    private static final String QUARKUS_PREFIX_DOT = "quarkus.";
+    private static final String QUARKUS_PACKAGE_PREFIX = "io.quarkus.";
+
     @BuildStep(onlyIf = DebianEnabled.class)
     @Record(ExecutionTime.RUNTIME_INIT)
     public void setupConfigReload(
@@ -51,16 +58,14 @@ public class ConfigReloadProcessor {
             recorder.registerMapping(mapping.getConfigClass().getName(), mapping.getPrefix());
         }
 
-        boolean reloadEnabled = config.reload().enabled();
         String packageName = config.name().orElse(appInfo.getName());
         if (packageName == null || packageName.isBlank()) {
-            packageName = "quarkus-app";
+            packageName = DEFAULT_PACKAGE_NAME;
         }
 
-        String socketPath = config.reload().socketPath()
-                .orElse("/run/" + packageName + "/control.sock");
+        String defaultSocketPath = DEFAULT_SOCKET_DIR + packageName + "/" + CONTROL_SOCKET_FILENAME;
 
-        recorder.startControlServer(shutdownContext, reloadEnabled, socketPath);
+        recorder.startControlServer(shutdownContext, defaultSocketPath);
     }
 
     private static boolean isExcludedFrameworkMapping(ConfigMappingBuildItem mapping) {
@@ -69,9 +74,9 @@ public class ConfigReloadProcessor {
             return true;
         }
         String prefix = mapping.getPrefix();
-        if (prefix != null && (prefix.equals("quarkus") || prefix.startsWith("quarkus."))) {
+        if (prefix != null && (prefix.equals(QUARKUS_PREFIX) || prefix.startsWith(QUARKUS_PREFIX_DOT))) {
             return true;
         }
-        return configClass.getPackageName().startsWith("io.quarkus.");
+        return configClass.getPackageName().startsWith(QUARKUS_PACKAGE_PREFIX);
     }
 }

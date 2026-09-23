@@ -69,6 +69,18 @@ public record DebianPackageModel(
     private static final Pattern UNIX_ACCOUNT = Pattern.compile("^[a-z_][a-z0-9_-]{0,31}$");
     private static final int MAX_UNIX_ACCOUNT_LENGTH = 32;
 
+    private static final String DEFAULT_INSTALL_PREFIX = "/usr/share/";
+    private static final String DEFAULT_CONFIG_PREFIX = "/etc/";
+    private static final String DEFAULT_DATA_PREFIX = "/var/lib/";
+    private static final String DEFAULT_LOG_PREFIX = "/var/log/";
+    private static final String DEFAULT_BIN_PREFIX = "/usr/bin/";
+    private static final String DEFAULT_DEFAULTS_PREFIX = "/etc/default/";
+    private static final String DEFAULT_SYSTEMD_PREFIX = "/usr/lib/systemd/system/";
+    private static final String SERVICE_FILE_EXTENSION = ".service";
+    private static final String DEFAULT_CONFIG_FILENAME = "application.properties";
+    private static final String DEFAULT_JVM_OPTIONS_FILENAME = "jvm.options";
+    private static final String DEB_EXTENSION = ".deb";
+
     public static DebianPackageModel resolve(
             DebianPackagingConfig config,
             ApplicationInfoBuildItem appInfo,
@@ -83,47 +95,44 @@ public record DebianPackageModel(
         if (!PACKAGE_NAME.matcher(packageName).matches()) {
             throw new IllegalArgumentException(
                     "Invalid Debian package name '" + packageName
-                            + "'. Names must be at least two characters and match [a-z0-9][a-z0-9+.-]+ "
-                            + "(configure quarkus.debian.name).");
+                            + "'. Names must be at least two characters and match [a-z0-9][a-z0-9+.-]+.");
         }
 
         String version = config.version().orElse(appInfo.getVersion());
         if (version == null || version.isBlank() || ApplicationInfoBuildItem.UNSET_VALUE.equals(version)) {
-            throw new IllegalArgumentException(
-                    "Debian package version is unset. Configure quarkus.application.version or quarkus.debian.version.");
+            throw new IllegalArgumentException("Debian package version is unset.");
         }
 
         String description = config.description().orElse(packageName + " service");
         String architecture = config.architecture().orElseGet(() -> payload.isNative() ? detectNativeArchitecture() : "all");
 
         String installDir = normalizeAbsolutePath(
-                config.installDir().orElse("/usr/share/" + packageName), "quarkus.debian.install-dir");
+                config.installDir().orElse(DEFAULT_INSTALL_PREFIX + packageName));
         String configDir = normalizeAbsolutePath(
-                config.configDir().orElse("/etc/" + packageName), "quarkus.debian.config-dir");
+                config.configDir().orElse(DEFAULT_CONFIG_PREFIX + packageName));
         String dataDir = normalizeAbsolutePath(
-                config.dataDir().orElse("/var/lib/" + packageName), "quarkus.debian.data-dir");
+                config.dataDir().orElse(DEFAULT_DATA_PREFIX + packageName));
         String logDir = normalizeAbsolutePath(
-                config.logDir().orElse("/var/log/" + packageName), "quarkus.debian.log-dir");
+                config.logDir().orElse(DEFAULT_LOG_PREFIX + packageName));
         String executableFile = normalizeAbsolutePath(
-                config.executableFile().orElse("/usr/bin/" + packageName), "quarkus.debian.executable-file");
+                config.executableFile().orElse(DEFAULT_BIN_PREFIX + packageName));
         String defaultsFile = normalizeAbsolutePath(
-                config.defaultsFile().orElse("/etc/default/" + packageName), "quarkus.debian.defaults-file");
-        String systemdServiceName = packageName + ".service";
+                config.defaultsFile().orElse(DEFAULT_DEFAULTS_PREFIX + packageName));
+        String systemdServiceName = packageName + SERVICE_FILE_EXTENSION;
         String systemdUnitFile = normalizeAbsolutePath(
-                config.systemdUnitFile().orElse("/usr/lib/systemd/system/" + systemdServiceName),
-                "quarkus.debian.systemd-unit-file");
+                config.systemdUnitFile().orElse(DEFAULT_SYSTEMD_PREFIX + systemdServiceName));
         String serviceUser = config.serviceUser()
-                .map(value -> validateUnixAccount(value, "quarkus.debian.service-user"))
+                .map(DebianPackageModel::validateUnixAccount)
                 .orElseGet(() -> deriveUnixAccountName(packageName));
         String serviceGroup = config.serviceGroup()
-                .map(value -> validateUnixAccount(value, "quarkus.debian.service-group"))
+                .map(DebianPackageModel::validateUnixAccount)
                 .orElse(serviceUser);
         String configFile = normalizeAbsolutePath(
-                config.configFile().orElse(configDir + "/application.properties"), "quarkus.debian.config-file");
-        String jvmOptionsFile = configDir + "/jvm.options";
+                config.configFile().orElse(configDir + "/" + DEFAULT_CONFIG_FILENAME));
+        String jvmOptionsFile = configDir + "/" + DEFAULT_JVM_OPTIONS_FILENAME;
         String quarkusRunner = installDir + "/" + payload.mainRelativePath();
 
-        String outputName = config.outputName().orElse(packageName + "_" + version + "_" + architecture + ".deb");
+        String outputName = config.outputName().orElse(packageName + "_" + version + "_" + architecture + DEB_EXTENSION);
         Path outputFile = outputTarget.getOutputDirectory().resolve(outputName);
 
         return new DebianPackageModel(
@@ -216,8 +225,7 @@ public record DebianPackageModel(
         normalized = normalized.replaceAll("-+$", "");
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Cannot derive a Unix service account from package name '" + packageName
-                            + "'. Configure quarkus.debian.service-user and quarkus.debian.service-group.");
+                    "Cannot derive a Unix service account from package name '" + packageName + "'.");
         }
         if (Character.isDigit(normalized.charAt(0))) {
             normalized = "_" + normalized;
@@ -226,15 +234,15 @@ public record DebianPackageModel(
             normalized = normalized.substring(0, MAX_UNIX_ACCOUNT_LENGTH);
             normalized = normalized.replaceAll("-+$", "");
         }
-        return validateUnixAccount(normalized, "derived service account from package name '" + packageName + "'");
+        return validateUnixAccount(normalized);
     }
 
     /**
      * Ensures configured install paths are absolute and free of trailing slashes.
      */
-    static String normalizeAbsolutePath(String raw, String source) {
+    static String normalizeAbsolutePath(String raw) {
         if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("Path is unset (" + source + ").");
+            throw new IllegalArgumentException("Path must not be blank.");
         }
         String path = raw.trim().replace('\\', '/');
         while (path.length() > 1 && path.endsWith("/")) {
@@ -242,7 +250,7 @@ public record DebianPackageModel(
         }
         if (!path.startsWith("/")) {
             throw new IllegalArgumentException(
-                    "Path '" + raw + "' (" + source + ") must be an absolute path starting with '/'.");
+                    "Path '" + raw + "' must be an absolute path starting with '/'.");
         }
         if (path.contains("//")) {
             path = path.replaceAll("/{2,}", "/");
@@ -250,16 +258,14 @@ public record DebianPackageModel(
         return path;
     }
 
-    static String validateUnixAccount(String raw, String source) {
+    static String validateUnixAccount(String raw) {
         if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("Unix account name is unset (" + source + ").");
+            throw new IllegalArgumentException("Unix account name must not be blank.");
         }
         String account = raw.trim().toLowerCase(Locale.ROOT);
         if (!UNIX_ACCOUNT.matcher(account).matches()) {
             throw new IllegalArgumentException(
-                    "Invalid Unix account name '" + account + "' (" + source + "). "
-                            + "Names must match [a-z_][a-z0-9_-]{0,31} (configure quarkus.debian.service-user / "
-                            + "quarkus.debian.service-group).");
+                    "Invalid Unix account name '" + account + "'. Names must match [a-z_][a-z0-9_-]{0,31}.");
         }
         return account;
     }

@@ -61,7 +61,7 @@ public final class ControlSocketClient {
             var writer = new PrintWriter(new OutputStreamWriter(Channels.newOutputStream(socketChannel), StandardCharsets.UTF_8), true);
             var reader = new BufferedReader(new InputStreamReader(Channels.newInputStream(socketChannel), StandardCharsets.UTF_8));
 
-            writer.println("RELOAD");
+            writer.println(ControlSocketServer.CMD_RELOAD);
 
             String response = reader.readLine();
             if (response == null) {
@@ -69,7 +69,7 @@ public final class ControlSocketClient {
                 return 1;
             }
 
-            if (response.startsWith("OK")) {
+            if (response.startsWith(ControlSocketServer.PREFIX_OK.trim())) {
                 System.out.println(response);
                 return 0;
             } else {
