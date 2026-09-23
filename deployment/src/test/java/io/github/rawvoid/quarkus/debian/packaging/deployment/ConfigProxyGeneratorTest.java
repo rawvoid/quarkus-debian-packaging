@@ -105,10 +105,13 @@ class ConfigProxyGeneratorTest {
         assertEquals(initial.toString(), proxy.toString());
         assertEquals(initial.hashCode(), proxy.hashCode());
 
-        // Equals contract with initial snapshot
+        // Equals and hashCode contract with initial snapshot
         assertEquals(proxy, proxy);
         assertEquals(proxy, secondProxy);
-        assertEquals(proxy, initial);
+        assertEquals(secondProxy, proxy);
+        assertEquals(proxy.hashCode(), secondProxy.hashCode());
+        assertNotEquals(proxy, initial);
+        assertNotEquals(initial, proxy);
         assertNotEquals(proxy, null);
         assertNotEquals(proxy, "unrelated");
 
@@ -122,10 +125,13 @@ class ConfigProxyGeneratorTest {
         assertEquals(updated.toString(), proxy.toString());
         assertEquals(updated.hashCode(), proxy.hashCode());
 
-        // Equals contract with updated snapshot
+        // Equals and hashCode contract with updated snapshot
         assertEquals(proxy, proxy);
         assertEquals(proxy, secondProxy);
-        assertEquals(proxy, updated);
+        assertEquals(secondProxy, proxy);
+        assertEquals(proxy.hashCode(), secondProxy.hashCode());
+        assertNotEquals(proxy, updated);
+        assertNotEquals(updated, proxy);
         assertNotEquals(proxy, initial);
     }
 }
