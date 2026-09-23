@@ -191,21 +191,26 @@ Once `/etc/<app>/application.properties` has been modified, trigger hot reload u
 sudo systemctl reload my-app
 ```
 
-#### Method 2: Launcher CLI Helper
+#### Method 2: Launcher CLI Commands
+The installed executable (`/usr/bin/<app>`) provides convenience CLI operations:
 ```bash
-# Invokes the built-in python reload helper
+# Trigger hot reload via UNIX domain socket
 my-app --reload
+
+# Inspect systemd service status (forwards arguments to systemctl)
+my-app status
+my-app status -n 50 --no-pager
+
+# Print version and architecture
+my-app --version
+
+# Show usage guide and configuration paths
+my-app --help
 ```
 
 #### Method 3: Direct UNIX Domain Socket Command
 ```bash
 echo "RELOAD" | socat - UNIX-CONNECT:/run/my-app/control.sock
-```
-
-To check socket server status:
-```bash
-echo "STATUS" | socat - UNIX-CONNECT:/run/my-app/control.sock
-# Response: OK Control Socket Server is running on /run/my-app/control.sock
 ```
 
 ### Hot Reload Configuration (`quarkus.debian.reload.*`)

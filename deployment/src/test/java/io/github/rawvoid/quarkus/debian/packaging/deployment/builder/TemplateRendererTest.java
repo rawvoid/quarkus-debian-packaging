@@ -59,12 +59,24 @@ class TemplateRendererTest {
     void rendersLauncherScript() {
         String launcher = TemplateRenderer.render("launcher.sh", Map.of(
                 "packageName", "demo",
+                "version", "1.0.0",
+                "architecture", "amd64",
                 "installDir", "/usr/share/demo",
-                "defaultsFile", "/etc/default/demo"));
+                "defaultsFile", "/etc/default/demo",
+                "configFile", "/etc/demo/application.properties",
+                "systemdServiceName", "demo.service"));
         assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
+        assertTrue(launcher.contains("SYSTEMD_SERVICE_NAME=\"demo.service\""));
         assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
         assertTrue(launcher.contains("--reload)"));
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
+        assertTrue(launcher.contains("--status|status)"));
+        assertTrue(launcher.contains("exec systemctl status \"${SYSTEMD_SERVICE_NAME}\" \"$@\""));
+        assertTrue(launcher.contains("--version|-v)"));
+        assertTrue(launcher.contains("echo \"demo 1.0.0 (amd64)\""));
+        assertTrue(launcher.contains("--help|-h)"));
+        assertTrue(launcher.contains("Usage: demo [OPTIONS|COMMAND]"));
+        assertTrue(launcher.contains("sudo systemctl {start|stop|restart|status|reload} demo.service"));
         assertTrue(launcher.contains("export \"${key}=${val}\""));
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\" \"$@\""));
     }
@@ -164,10 +176,7 @@ class TemplateRendererTest {
                 "quarkusRunner", mainJar.toString())));
         setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
-                "packageName", "demo",
-                "installDir", tempDir.toString(),
-                "defaultsFile", defaultsFile.toString()));
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -210,10 +219,7 @@ class TemplateRendererTest {
                 "quarkusRunner", mockRunner.toString())));
         setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
-                "packageName", "demo",
-                "installDir", tempDir.toString(),
-                "defaultsFile", defaultsFile.toString()));
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -241,10 +247,7 @@ class TemplateRendererTest {
                 """);
         setPosixExecutable(reloadScript);
 
-        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
-                "packageName", "demo",
-                "installDir", tempDir.toString(),
-                "defaultsFile", defaultsFile.toString()));
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -257,6 +260,108 @@ class TemplateRendererTest {
 
         assertEquals(0, exitCode);
         assertTrue(output.contains("RELOAD_INVOKED"));
+    }
+
+    @Test
+    void launcherHandlesVersionFastPath(@TempDir Path tempDir) throws Exception {
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString(), "--version");
+        var process = pb.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        int exitCode = process.waitFor();
+
+        assertEquals(0, exitCode);
+        assertEquals("demo 1.0.0 (all)", output);
+
+        var pbShort = new ProcessBuilder("sh", launcherScript.toString(), "-v");
+        var processShort = pbShort.start();
+        String outputShort = new String(processShort.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        assertEquals(0, processShort.waitFor());
+        assertEquals("demo 1.0.0 (all)", outputShort);
+    }
+
+    @Test
+    void launcherHandlesHelpFastPath(@TempDir Path tempDir) throws Exception {
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString(), "--help");
+        var process = pb.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exitCode = process.waitFor();
+
+        assertEquals(0, exitCode);
+        assertTrue(output.contains("Usage: demo [OPTIONS|COMMAND]"));
+        assertTrue(output.contains("--reload"));
+        assertTrue(output.contains("--status, status"));
+        assertTrue(output.contains("sudo systemctl {start|stop|restart|status|reload} demo.service"));
+
+        var pbShort = new ProcessBuilder("sh", launcherScript.toString(), "-h");
+        var processShort = pbShort.start();
+        String outputShort = new String(processShort.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, processShort.waitFor());
+        assertTrue(outputShort.contains("Usage: demo [OPTIONS|COMMAND]"));
+    }
+
+    @Test
+    void launcherHandlesStatusDelegation(@TempDir Path tempDir) throws Exception {
+        Path binDir = tempDir.resolve("bin");
+        Files.createDirectories(binDir);
+        Path mockSystemctl = binDir.resolve("systemctl");
+        Files.writeString(mockSystemctl, """
+                #!/bin/sh
+                echo "mocked-systemctl: $*"
+                exit 0
+                """);
+        setPosixExecutable(mockSystemctl);
+
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString(), "status", "-n", "10");
+        String pathEnv = binDir + ":" + System.getenv().getOrDefault("PATH", "");
+        pb.environment().put("PATH", pathEnv);
+        var process = pb.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        int exitCode = process.waitFor();
+
+        assertEquals(0, exitCode);
+        assertEquals("mocked-systemctl: status demo.service -n 10", output);
+
+        var pbFlag = new ProcessBuilder("sh", launcherScript.toString(), "--status");
+        pbFlag.environment().put("PATH", pathEnv);
+        var processFlag = pbFlag.start();
+        String outputFlag = new String(processFlag.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        assertEquals(0, processFlag.waitFor());
+        assertEquals("mocked-systemctl: status demo.service", outputFlag);
+    }
+
+    @Test
+    void launcherFailsStatusWhenSystemctlMissing(@TempDir Path tempDir) throws Exception {
+        Path emptyBinDir = tempDir.resolve("empty-bin");
+        Files.createDirectories(emptyBinDir);
+
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
+        Path launcherScript = tempDir.resolve("launcher.sh");
+        Files.writeString(launcherScript, scriptContent);
+        setPosixExecutable(launcherScript);
+
+        var pb = new ProcessBuilder("sh", launcherScript.toString(), "status");
+        pb.environment().put("PATH", emptyBinDir.toString());
+        var process = pb.start();
+        String errOutput = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exitCode = process.waitFor();
+
+        assertNotEquals(0, exitCode);
+        assertTrue(errOutput.contains("systemctl command not found"));
     }
 
     @Test
@@ -279,10 +384,7 @@ class TemplateRendererTest {
                 "quarkusRunner", mainJar.toString())));
         setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
-                "packageName", "demo",
-                "installDir", tempDir.toString(),
-                "defaultsFile", defaultsFile.toString()));
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -318,10 +420,7 @@ class TemplateRendererTest {
                 "quarkusRunner", mainJar.toString())));
         setPosixExecutable(startupScript);
 
-        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
-                "packageName", "demo",
-                "installDir", tempDir.toString(),
-                "defaultsFile", defaultsFile.toString()));
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -337,10 +436,7 @@ class TemplateRendererTest {
 
     @Test
     void launcherFailsWhenStartupScriptMissing(@TempDir Path tempDir) throws Exception {
-        String scriptContent = TemplateRenderer.render("launcher.sh", Map.of(
-                "packageName", "demo",
-                "installDir", tempDir.toString(),
-                "defaultsFile", tempDir.resolve("defaults").toString()));
+        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
 
         Path launcherScript = tempDir.resolve("launcher.sh");
         Files.writeString(launcherScript, scriptContent);
@@ -353,6 +449,17 @@ class TemplateRendererTest {
 
         assertNotEquals(0, exitCode);
         assertTrue(errOutput.contains("Startup script not found"));
+    }
+
+    private static Map<String, String> launcherVars(String packageName, Path installDir, Path defaultsFile) {
+        return Map.of(
+                "packageName", packageName,
+                "version", "1.0.0",
+                "architecture", "all",
+                "installDir", installDir.toString(),
+                "defaultsFile", defaultsFile.toString(),
+                "configFile", installDir.resolve("application.properties").toString(),
+                "systemdServiceName", packageName + ".service");
     }
 
     private static void setPosixExecutable(Path path) throws IOException {

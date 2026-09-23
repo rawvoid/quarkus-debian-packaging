@@ -57,15 +57,15 @@ class ControlSocketServerTest {
             assertTrue(started, "Server should start successfully");
             assertTrue(Files.exists(socketPath), "Socket file should be created");
 
-            // Test STATUS command directly
+            // Test unknown command rejection
             try (var channel = SocketChannel.open(StandardProtocolFamily.UNIX)) {
                 channel.connect(UnixDomainSocketAddress.of(socketPath));
                 var writer = new PrintWriter(new OutputStreamWriter(Channels.newOutputStream(channel), StandardCharsets.UTF_8), true);
                 var reader = new BufferedReader(new InputStreamReader(Channels.newInputStream(channel), StandardCharsets.UTF_8));
 
-                writer.println("STATUS");
+                writer.println("PING");
                 String response = reader.readLine();
-                assertTrue(response.startsWith("OK"), "Expected OK response, got: " + response);
+                assertTrue(response.startsWith(ControlSocketServer.PREFIX_ERROR), "Expected ERROR response for unknown command, got: " + response);
             }
 
             // Test RELOAD command via ControlSocketClient
