@@ -24,6 +24,7 @@ import java.util.OptionalInt;
 
 import org.eclipse.microprofile.config.spi.ConfigSource;
 
+import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.quarkus.runtime.ApplicationConfig;
 import io.smallrye.config.ConfigSourceContext;
@@ -76,7 +77,7 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
             return Collections.emptyList();
         }
 
-        String packageName = config.name().filter(s -> !s.isBlank())
+        String rawPackageName = config.name().filter(s -> !s.isBlank())
                 .or(appConfig::name)
                 .filter(s -> !s.isBlank())
                 .orElse(null);
@@ -85,9 +86,10 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
         if (config.configFile().filter(s -> !s.isBlank()).isPresent()) {
             configFilePath = Path.of(config.configFile().get());
         } else {
-            if (packageName == null || packageName.isBlank()) {
+            if (rawPackageName == null || rawPackageName.isBlank()) {
                 return Collections.emptyList();
             }
+            String packageName = DebianPackageNames.sanitize(rawPackageName);
             if (config.configDir().filter(s -> !s.isBlank()).isPresent()) {
                 configFilePath = Path.of(config.configDir().get(), ExternalConfigSource.DEFAULT_CONFIG_FILENAME);
             } else {

@@ -20,6 +20,7 @@ import java.util.List;
 
 import org.jboss.jandex.DotName;
 
+import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
@@ -113,10 +114,10 @@ public class ConfigReloadProcessor {
             recorder.registerMapping(mapping.getConfigClass().getName(), mapping.getPrefix());
         }
 
-        String packageName = config.name().orElse(appInfo.getName());
-        if (packageName == null || packageName.isBlank()) {
-            packageName = DEFAULT_PACKAGE_NAME;
-        }
+        String rawPackageName = config.name().orElse(appInfo.getName());
+        String packageName = (rawPackageName != null && !rawPackageName.isBlank())
+                ? DebianPackageNames.sanitize(rawPackageName)
+                : DEFAULT_PACKAGE_NAME;
 
         String defaultSocketPath = DEFAULT_SOCKET_DIR + packageName + "/" + CONTROL_SOCKET_FILENAME;
         String socketPath = reloadConfig.socketPath().filter(s -> !s.isBlank()).orElse(defaultSocketPath);
