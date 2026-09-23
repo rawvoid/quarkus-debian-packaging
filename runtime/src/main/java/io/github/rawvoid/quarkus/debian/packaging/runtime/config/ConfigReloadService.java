@@ -40,7 +40,7 @@ import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
 
 /**
- * Coordinates configuration validation, snapshot generation, and in-place hot patching.
+ * Coordinates configuration validation, candidate snapshot generation, and atomic snapshot swapping.
  *
  * @author rawvoid
  */
@@ -50,17 +50,15 @@ public class ConfigReloadService {
 
     public record ReloadResult(boolean success, String message, int updatedCount) {}
 
-    public record RegisteredMapping(Class<?> mappingClass, String prefix) {}
-
-    private final List<RegisteredMapping> registeredMappings = new CopyOnWriteArrayList<>();
+    private final List<ConfigMappingKey> registeredMappings = new CopyOnWriteArrayList<>();
 
     public void registerMapping(Class<?> mappingClass, String prefix) {
         if (mappingClass != null) {
-            registeredMappings.add(new RegisteredMapping(mappingClass, prefix));
+            registeredMappings.add(new ConfigMappingKey(mappingClass, prefix));
         }
     }
 
-    public List<RegisteredMapping> getRegisteredMappings() {
+    public List<ConfigMappingKey> getRegisteredMappings() {
         return Collections.unmodifiableList(registeredMappings);
     }
 
@@ -93,7 +91,7 @@ public class ConfigReloadService {
 
         // Phase 2: Validate against SmallRyeConfig and create snapshots for registered mappings
         SmallRyeConfig currentConfig = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
-        Map<RegisteredMapping, Object> newSnapshots = new HashMap<>();
+        Map<ConfigMappingKey, Object> newSnapshots = new HashMap<>();
 
         if (!registeredMappings.isEmpty()) {
             List<ConfigSource> testSources = new ArrayList<>();
@@ -112,7 +110,7 @@ public class ConfigReloadService {
                     .withSources(testSources)
                     .withValidateUnknown(false);
 
-            for (RegisteredMapping reg : registeredMappings) {
+            for (ConfigMappingKey reg : registeredMappings) {
                 if (reg.prefix() != null && !reg.prefix().isEmpty()) {
                     builder.withMapping(reg.mappingClass(), reg.prefix());
                 } else {
@@ -122,7 +120,7 @@ public class ConfigReloadService {
 
             try {
                 SmallRyeConfig candidateConfig = builder.build();
-                for (RegisteredMapping reg : registeredMappings) {
+                for (ConfigMappingKey reg : registeredMappings) {
                     Object snapshot = (reg.prefix() != null && !reg.prefix().isEmpty())
                             ? candidateConfig.getConfigMapping(reg.mappingClass(), reg.prefix())
                             : candidateConfig.getConfigMapping(reg.mappingClass());
@@ -138,21 +136,14 @@ public class ConfigReloadService {
             }
         }
 
-        // Phase 3: Validation passed - commit properties and patch live instances
+        // Phase 3: Validation passed - commit properties and swap active snapshots atomically
         Map<String, String> oldProps = configSource.getProperties();
         configSource.commit(newProps);
 
-        for (Map.Entry<RegisteredMapping, Object> entry : newSnapshots.entrySet()) {
-            RegisteredMapping reg = entry.getKey();
+        for (Map.Entry<ConfigMappingKey, Object> entry : newSnapshots.entrySet()) {
+            ConfigMappingKey reg = entry.getKey();
             Object snapshot = entry.getValue();
-            try {
-                Object currentLive = (reg.prefix() != null && !reg.prefix().isEmpty())
-                        ? currentConfig.getConfigMapping(reg.mappingClass(), reg.prefix())
-                        : currentConfig.getConfigMapping(reg.mappingClass());
-                ConfigMappingInPlacePatcher.patch(currentLive, snapshot);
-            } catch (Exception e) {
-                LOG.warnf(e, "Failed to patch live config mapping for class %s", reg.mappingClass().getName());
-            }
+            ReloadableConfigRegistry.swap(reg.mappingClass(), reg.prefix(), snapshot);
         }
 
         // Phase 4: Publish CDI event
