@@ -2,6 +2,7 @@
 set -eu
 
 INSTALL_DIR="${installDir}"
+SYSTEMD_SERVICE_NAME="${systemdServiceName}"
 
 case "${1:-}" in
     --reload)
@@ -11,6 +12,38 @@ case "${1:-}" in
             exit 1
         fi
         exec "${INSTALL_DIR}/reload" "$@"
+        ;;
+    --status|status)
+        shift
+        if ! command -v systemctl >/dev/null 2>&1; then
+            echo "Error: systemctl command not found. Cannot query service status." >&2
+            exit 1
+        fi
+        exec systemctl status "${SYSTEMD_SERVICE_NAME}" "$@"
+        ;;
+    --version|-v)
+        echo "${packageName} ${version} (${architecture})"
+        exit 0
+        ;;
+    --help|-h)
+        cat << 'EOF'
+Usage: ${packageName} [OPTIONS|COMMAND]
+
+Commands / Options:
+    --reload         Hot-reload configuration via UNIX domain socket
+    --status, status Query systemd service status
+    --version, -v    Print package version and architecture
+    --help, -h       Print this help message
+
+Running without arguments starts the application in the foreground.
+To manage the background service, use systemd:
+    sudo systemctl {start|stop|restart|status|reload} ${systemdServiceName}
+
+Configuration:
+    Config File:     ${configFile}
+    Environment:     ${defaultsFile}
+EOF
+        exit 0
         ;;
 esac
 
