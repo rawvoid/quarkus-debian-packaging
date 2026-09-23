@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
@@ -42,6 +43,12 @@ class ConfigReloadServiceTest {
 
     @TempDir
     Path tempDir;
+
+    @AfterEach
+    void cleanup() {
+        ExternalConfigGroup.clear();
+        ReloadableConfigRegistry.clear();
+    }
 
     @Test
     void testConfigUtilsDiscoversDurationAndCharsetConverters() {
@@ -63,6 +70,7 @@ class ConfigReloadServiceTest {
         Files.writeString(configFile, "scoot.http.connect-timeout=10s\n");
 
         var configSource = new ExternalConfigSource(configFile);
+        ExternalConfigGroup.register(new ExternalConfigGroup(configFile, List.of(configSource)));
         var reloadService = new ConfigReloadService();
 
         var result = reloadService.reload();
@@ -81,6 +89,7 @@ class ConfigReloadServiceTest {
     void testCandidateConfigValidationWithDurationAndCharset() {
         Path configFile = tempDir.resolve("application.properties");
         var configSource = new ExternalConfigSource(configFile);
+        ExternalConfigGroup.register(new ExternalConfigGroup(configFile, List.of(configSource)));
 
         SmallRyeConfig currentConfig = ConfigUtils.emptyConfigBuilder().build();
 
@@ -103,17 +112,13 @@ class ConfigReloadServiceTest {
         int port();
     }
 
-    @AfterEach
-    void cleanup() {
-        ReloadableConfigRegistry.clear();
-    }
-
     @Test
     void testReloadLifecycleWithRegisteredMapping() throws IOException {
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "service.host=localhost\nservice.port=8080\n");
 
         var configSource = new ExternalConfigSource(configFile);
+        ExternalConfigGroup.register(new ExternalConfigGroup(configFile, List.of(configSource)));
         var reloadService = new ConfigReloadService();
         reloadService.registerMapping(SampleServiceConfig.class, "service");
 
@@ -136,5 +141,55 @@ class ConfigReloadServiceTest {
         assertNotNull(updatedSnapshot);
         assertEquals("remote-host", updatedSnapshot.host());
         assertEquals(9090, updatedSnapshot.port());
+    }
+
+    @Test
+    void testReloadWithProfileCompanionFilesAndAtomicRollbackOnFailure() throws IOException {
+        Path mainFile = tempDir.resolve("application.properties");
+        Path prodFile = tempDir.resolve("application-prod.properties");
+
+        Files.writeString(mainFile, "service.host=main-host\nservice.port=8080\n");
+        Files.writeString(prodFile, "service.port=8443\n");
+
+        var mainSource = new ExternalConfigSource(mainFile, 275);
+        var prodSource = new ExternalConfigSource(prodFile, 276);
+        ExternalConfigGroup.register(new ExternalConfigGroup(mainFile, List.of(mainSource, prodSource)));
+
+        var reloadService = new ConfigReloadService();
+        reloadService.registerMapping(SampleServiceConfig.class, "service");
+
+        var result = reloadService.reload();
+        assertTrue(result.success());
+
+        SampleServiceConfig snapshot = ReloadableConfigRegistry.get(SampleServiceConfig.class, "service");
+        assertNotNull(snapshot);
+        assertEquals("main-host", snapshot.host());
+        assertEquals(8443, snapshot.port()); // Overridden by prod profile
+
+        // Modify files: main file has valid host, but prod file has invalid non-integer port
+        Files.writeString(mainFile, "service.host=new-main-host\nservice.port=8080\n");
+        Files.writeString(prodFile, "service.port=invalid-port\n");
+
+        var failResult = reloadService.reload();
+        assertFalse(failResult.success());
+        assertTrue(failResult.message().contains("Validation") || failResult.message().contains("failed"));
+
+        // Atomic rollback invariant: neither source should have committed, registry unchanged
+        assertEquals("main-host", mainSource.getValue("service.host"));
+        assertEquals("8443", prodSource.getValue("service.port"));
+        SampleServiceConfig unchanged = ReloadableConfigRegistry.get(SampleServiceConfig.class, "service");
+        assertEquals("main-host", unchanged.host());
+        assertEquals(8443, unchanged.port());
+
+        // Fix the prod file with a valid integer port
+        Files.writeString(prodFile, "service.port=9443\n");
+        var successResult = reloadService.reload();
+        assertTrue(successResult.success());
+
+        assertEquals("new-main-host", mainSource.getValue("service.host"));
+        assertEquals("9443", prodSource.getValue("service.port"));
+        SampleServiceConfig finalSnapshot = ReloadableConfigRegistry.get(SampleServiceConfig.class, "service");
+        assertEquals("new-main-host", finalSnapshot.host());
+        assertEquals(9443, finalSnapshot.port());
     }
 }

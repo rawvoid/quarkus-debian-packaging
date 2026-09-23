@@ -24,19 +24,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
+import org.eclipse.microprofile.config.spi.ConfigSource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import io.quarkus.runtime.LaunchMode;
+import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.smallrye.config.ConfigSourceContext;
 import io.smallrye.config.ConfigValue;
+import io.smallrye.config.SmallRyeConfigBuilder;
 
 class ExternalConfigSourceTest {
 
     @TempDir
     Path tempDir;
+
+    @AfterEach
+    void cleanup() {
+        ExternalConfigGroup.clear();
+    }
 
     @Test
     void testOrdinalAndDefaults() {
@@ -81,51 +91,49 @@ class ExternalConfigSourceTest {
         var factory = new ExternalConfigSourceFactory();
 
         var disabledContext = createContext(Map.of("quarkus.debian.enabled", "false"));
-        assertFalse(factory.getConfigSources(disabledContext).iterator().hasNext());
+        DebianPackagingConfig config = createDebianConfig(disabledContext);
+        assertFalse(factory.getConfigSources(disabledContext, config, "true").iterator().hasNext());
     }
 
     @Test
-    void testFactorySkipsDefaultConfigInDevelopmentMode() {
-        LaunchMode prev = LaunchMode.current();
-        try {
-            LaunchMode.set(LaunchMode.DEVELOPMENT);
-            var factory = new ExternalConfigSourceFactory();
+    void testFactoryUnarmedReturnsEmptyListInAllModes() {
+        var factory = new ExternalConfigSourceFactory();
 
-            // Default config without explicit configFile is skipped in dev mode
-            var context = createContext(Map.of("quarkus.debian.name", "my-app"));
-            assertFalse(factory.getConfigSources(context).iterator().hasNext());
+        // 1. Armed env null
+        var context = createContext(Map.of(
+                "quarkus.debian.name", "my-app",
+                "quarkus.debian.config-file", "/tmp/dev.properties"));
+        DebianPackagingConfig config = createDebianConfig(context);
+        assertFalse(factory.getConfigSources(context, config, null).iterator().hasNext());
 
-            // Explicit configFile is still honored in dev mode
-            var explicitContext = createContext(Map.of(
-                    "quarkus.debian.name", "my-app",
-                    "quarkus.debian.config-file", "/tmp/dev.properties"));
-            assertTrue(factory.getConfigSources(explicitContext).iterator().hasNext());
-        } finally {
-            LaunchMode.set(prev);
-        }
+        // 2. Armed env "false"
+        assertFalse(factory.getConfigSources(context, config, "false").iterator().hasNext());
+
+        // 3. Armed env empty
+        assertFalse(factory.getConfigSources(context, config, "").iterator().hasNext());
     }
 
     @Test
-    void testFactoryResolvesConfigFilePath() {
+    void testFactoryResolvesConfigFilePathWhenArmed() {
         var factory = new ExternalConfigSourceFactory();
 
         // 1. Explicit debian package name
         var nameContext = createContext(Map.of("quarkus.debian.name", "my-app"));
-        var sources = factory.getConfigSources(nameContext).iterator();
+        var sources = factory.getConfigSources(nameContext, createDebianConfig(nameContext), "true").iterator();
         assertTrue(sources.hasNext());
         var source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-app/application.properties"), source.getConfigFile());
 
         // 2. Fallback to quarkus.application.name
         var fallbackContext = createContext(Map.of("quarkus.application.name", "my-fallback-app"));
-        sources = factory.getConfigSources(fallbackContext).iterator();
+        sources = factory.getConfigSources(fallbackContext, createDebianConfig(fallbackContext), "true").iterator();
         assertTrue(sources.hasNext());
         source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-fallback-app/application.properties"), source.getConfigFile());
 
         // 2b. Fallback to quarkus.application.name with underscores and uppercase (sanitized)
         var unsanitizedContext = createContext(Map.of("quarkus.application.name", "My_Custom_App"));
-        sources = factory.getConfigSources(unsanitizedContext).iterator();
+        sources = factory.getConfigSources(unsanitizedContext, createDebianConfig(unsanitizedContext), "true").iterator();
         assertTrue(sources.hasNext());
         source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/etc/my-custom-app/application.properties"), source.getConfigFile());
@@ -134,7 +142,7 @@ class ExternalConfigSourceTest {
         var customFileContext = createContext(Map.of(
                 "quarkus.debian.name", "my-app",
                 "quarkus.debian.config-file", "/opt/custom/config.properties"));
-        sources = factory.getConfigSources(customFileContext).iterator();
+        sources = factory.getConfigSources(customFileContext, createDebianConfig(customFileContext), "true").iterator();
         assertTrue(sources.hasNext());
         source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/opt/custom/config.properties"), source.getConfigFile());
@@ -143,17 +151,62 @@ class ExternalConfigSourceTest {
         var customDirContext = createContext(Map.of(
                 "quarkus.debian.name", "my-app",
                 "quarkus.debian.config-dir", "/var/etc/my-app"));
-        sources = factory.getConfigSources(customDirContext).iterator();
+        sources = factory.getConfigSources(customDirContext, createDebianConfig(customDirContext), "true").iterator();
         assertTrue(sources.hasNext());
         source = (ExternalConfigSource) sources.next();
         assertEquals(Path.of("/var/etc/my-app/application.properties"), source.getConfigFile());
 
         // 5. Missing package name and app name
         var emptyContext = createContext(Map.of());
-        assertFalse(factory.getConfigSources(emptyContext).iterator().hasNext());
+        assertFalse(factory.getConfigSources(emptyContext, createDebianConfig(emptyContext), "true").iterator().hasNext());
+    }
+
+    @Test
+    void testProfileCompanionSourcesAndOrdinals() {
+        var factory = new ExternalConfigSourceFactory();
+        var context = createContextWithProfiles(
+                Map.of("quarkus.debian.name", "my-app"),
+                List.of("prod", "staging"));
+
+        DebianPackagingConfig config = createDebianConfig(context);
+        List<ConfigSource> sources = (List<ConfigSource>) factory.getConfigSources(context, config, "true");
+
+        assertEquals(3, sources.size());
+
+        // Main source
+        ExternalConfigSource main = (ExternalConfigSource) sources.get(0);
+        assertEquals(Path.of("/etc/my-app/application.properties"), main.getConfigFile());
+        assertEquals(275, main.getOrdinal());
+
+        // Staging (index 1 in profiles [prod, staging]): 275 + 2 - 1 = 276
+        ExternalConfigSource staging = (ExternalConfigSource) sources.get(1);
+        assertEquals(Path.of("/etc/my-app/application-staging.properties"), staging.getConfigFile());
+        assertEquals(276, staging.getOrdinal());
+
+        // Prod (index 0 in profiles [prod, staging]): 275 + 2 - 0 = 277
+        ExternalConfigSource prod = (ExternalConfigSource) sources.get(2);
+        assertEquals(Path.of("/etc/my-app/application-prod.properties"), prod.getConfigFile());
+        assertEquals(277, prod.getOrdinal());
+
+        assertTrue(prod.getOrdinal() > staging.getOrdinal());
+        assertTrue(staging.getOrdinal() > main.getOrdinal());
+        assertTrue(prod.getOrdinal() < 300);
+    }
+
+    private static DebianPackagingConfig createDebianConfig(ConfigSourceContext context) {
+        return new SmallRyeConfigBuilder()
+                .withSources(new ConfigSourceContext.ConfigSourceContextConfigSource(context))
+                .withMapping(DebianPackagingConfig.class)
+                .withValidateUnknown(false)
+                .build()
+                .getConfigMapping(DebianPackagingConfig.class);
     }
 
     private static ConfigSourceContext createContext(Map<String, String> properties) {
+        return createContextWithProfiles(properties, List.of());
+    }
+
+    private static ConfigSourceContext createContextWithProfiles(Map<String, String> properties, List<String> profiles) {
         return new ConfigSourceContext() {
             @Override
             public ConfigValue getValue(String name) {
@@ -162,8 +215,13 @@ class ExternalConfigSourceTest {
             }
 
             @Override
-            public java.util.Iterator<String> iterateNames() {
+            public Iterator<String> iterateNames() {
                 return properties.keySet().iterator();
+            }
+
+            @Override
+            public List<String> getProfiles() {
+                return profiles;
             }
         };
     }

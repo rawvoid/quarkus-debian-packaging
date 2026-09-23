@@ -32,10 +32,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ExternalConfigGroup;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ExternalConfigSource;
 
 class ControlSocketServerTest {
@@ -43,13 +47,19 @@ class ControlSocketServerTest {
     @TempDir
     Path tempDir;
 
+    @AfterEach
+    void cleanup() {
+        ExternalConfigGroup.clear();
+    }
+
     @Test
     void testSocketServerLifecycleAndCommands() throws Exception {
         Path socketPath = tempDir.resolve("control.sock");
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "greeting=hello\n");
 
-        new ExternalConfigSource(configFile);
+        var source = new ExternalConfigSource(configFile);
+        ExternalConfigGroup.register(new ExternalConfigGroup(configFile, List.of(source)));
         var reloadService = new ConfigReloadService();
 
         try (var server = new ControlSocketServer(socketPath, reloadService)) {

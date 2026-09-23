@@ -73,6 +73,8 @@ if [ -r "${DEFAULTS_FILE}" ]; then
     done < "${DEFAULTS_FILE}"
 fi
 
+export QUARKUS_DEBIAN_EXTERNAL_CONFIG=true
+
 if [ ! -x "${INSTALL_DIR}/startup" ]; then
     echo "Error: Startup script not found or not executable: ${INSTALL_DIR}/startup" >&2
     exit 1
