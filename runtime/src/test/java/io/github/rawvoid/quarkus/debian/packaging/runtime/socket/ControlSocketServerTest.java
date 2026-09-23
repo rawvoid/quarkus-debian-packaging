@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
-import io.github.rawvoid.quarkus.debian.packaging.runtime.config.DebianExternalConfigSource;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ExternalConfigSource;
 
 class ControlSocketServerTest {
 
@@ -49,7 +49,7 @@ class ControlSocketServerTest {
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "greeting=hello\n");
 
-        new DebianExternalConfigSource(configFile);
+        new ExternalConfigSource(configFile);
         var reloadService = new ConfigReloadService();
 
         try (var server = new ControlSocketServer(socketPath, reloadService)) {

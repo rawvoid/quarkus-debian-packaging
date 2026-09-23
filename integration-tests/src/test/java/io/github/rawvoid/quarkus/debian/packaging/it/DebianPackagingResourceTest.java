@@ -16,13 +16,27 @@
 
 package io.github.rawvoid.quarkus.debian.packaging.it;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.is;
+
+import org.junit.jupiter.api.Test;
+
+import io.quarkus.test.junit.QuarkusTest;
 
 /**
- * Runs the resource test against the packaged application.
+ * Verifies the integration-test REST endpoint.
  *
  * @author rawvoid
  */
-@QuarkusIntegrationTest
-public class QuarkusDebianPackagingResourceIT extends QuarkusDebianPackagingResourceTest {
+@QuarkusTest
+public class DebianPackagingResourceTest {
+
+    @Test
+    public void testHelloEndpoint() {
+        given()
+                .when().get("/quarkus-debian-packaging")
+                .then()
+                .statusCode(200)
+                .body(is("Hello quarkus-debian-packaging"));
+    }
 }

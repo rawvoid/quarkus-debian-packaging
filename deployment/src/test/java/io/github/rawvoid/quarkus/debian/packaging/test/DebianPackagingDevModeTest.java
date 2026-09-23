@@ -29,7 +29,7 @@ import io.quarkus.test.QuarkusDevModeTest;
  *
  * @author rawvoid
  */
-public class QuarkusDebianPackagingDevModeTest {
+public class DebianPackagingDevModeTest {
 
     @RegisterExtension
     static final QuarkusDevModeTest devModeTest = new QuarkusDevModeTest()

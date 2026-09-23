@@ -65,29 +65,29 @@ public class ConfigReloadService {
     }
 
     public synchronized ReloadResult reload() {
-        DebianExternalConfigSource configSource = DebianExternalConfigSource.getInstance();
+        ExternalConfigSource configSource = ExternalConfigSource.getInstance();
         if (configSource == null) {
-            LOG.warn("Debian configuration reload aborted: external configuration source is not active.");
-            return new ReloadResult(false, "External Debian configuration source is not active.", 0);
+            LOG.warn("Configuration reload aborted: external configuration source is not active.");
+            return new ReloadResult(false, "External configuration source is not active.", 0);
         }
 
         Path configFile = configSource.getConfigFile();
         if (configFile == null) {
-            LOG.warn("Debian configuration reload aborted: external configuration file path is not defined.");
+            LOG.warn("Configuration reload aborted: external configuration file path is not defined.");
             return new ReloadResult(false, "External configuration file path is not defined.", 0);
         }
 
         if (!Files.isRegularFile(configFile) || !Files.isReadable(configFile)) {
-            LOG.warnf("Debian configuration reload aborted: configuration file is not readable or does not exist: %s", configFile);
+            LOG.warnf("Configuration reload aborted: configuration file is not readable or does not exist: %s", configFile);
             return new ReloadResult(false, "Configuration file is not readable or does not exist: " + configFile, 0);
         }
 
         // Phase 1: Load raw properties from disk
         Map<String, String> newProps;
         try {
-            newProps = DebianExternalConfigSource.loadFromFile(configFile);
+            newProps = ExternalConfigSource.loadFromFile(configFile);
         } catch (Exception e) {
-            LOG.warnf(e, "Debian configuration reload aborted: syntax or IO error while reading %s", configFile);
+            LOG.warnf(e, "Configuration reload aborted: syntax or IO error while reading %s", configFile);
             return new ReloadResult(false, "Syntax or IO error while reading " + configFile + ": " + e.getMessage(), 0);
         }
 
@@ -98,7 +98,7 @@ public class ConfigReloadService {
         if (!registeredMappings.isEmpty()) {
             List<ConfigSource> testSources = new ArrayList<>();
             for (ConfigSource src : currentConfig.getConfigSources()) {
-                if (!(src instanceof DebianExternalConfigSource)) {
+                if (!(src instanceof ExternalConfigSource)) {
                     testSources.add(src);
                 }
             }
@@ -130,10 +130,10 @@ public class ConfigReloadService {
                 }
             } catch (ConfigValidationException e) {
                 String errorMsg = formatValidationErrors(e);
-                LOG.warnf("Debian configuration validation failed while reloading %s:\n%s", configFile, errorMsg);
+                LOG.warnf("Configuration validation failed while reloading %s:\n%s", configFile, errorMsg);
                 return new ReloadResult(false, "Configuration validation failed:\n" + errorMsg, 0);
             } catch (Exception e) {
-                LOG.warnf(e, "Debian configuration mapping failed while reloading %s", configFile);
+                LOG.warnf(e, "Configuration mapping failed while reloading %s", configFile);
                 return new ReloadResult(false, "Configuration mapping failed: " + e.getMessage(), 0);
             }
         }

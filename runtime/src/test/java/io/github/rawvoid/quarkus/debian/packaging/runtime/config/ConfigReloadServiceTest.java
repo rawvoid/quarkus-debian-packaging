@@ -59,7 +59,7 @@ class ConfigReloadServiceTest {
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "scoot.http.connect-timeout=10s\n");
 
-        var configSource = new DebianExternalConfigSource(configFile);
+        var configSource = new ExternalConfigSource(configFile);
         var reloadService = new ConfigReloadService();
 
         var result = reloadService.reload();
@@ -77,7 +77,7 @@ class ConfigReloadServiceTest {
     @Test
     void testCandidateConfigValidationWithDurationAndCharset() {
         Path configFile = tempDir.resolve("application.properties");
-        var configSource = new DebianExternalConfigSource(configFile);
+        var configSource = new ExternalConfigSource(configFile);
 
         SmallRyeConfig currentConfig = ConfigUtils.emptyConfigBuilder().build();
 

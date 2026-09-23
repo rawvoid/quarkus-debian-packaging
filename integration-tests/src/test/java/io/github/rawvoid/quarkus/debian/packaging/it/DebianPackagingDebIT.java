@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
  *
  * @author rawvoid
  */
-public class QuarkusDebianPackagingDebIT {
+public class DebianPackagingDebIT {
 
     @Test
     void debPackageIsProducedWithExpectedLayout() throws Exception {

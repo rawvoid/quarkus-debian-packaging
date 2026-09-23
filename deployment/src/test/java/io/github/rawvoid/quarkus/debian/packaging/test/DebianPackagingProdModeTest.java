@@ -48,7 +48,7 @@ import io.quarkus.test.QuarkusProdModeTest;
  *
  * @author rawvoid
  */
-public class QuarkusDebianPackagingProdModeTest {
+public class DebianPackagingProdModeTest {
 
     @RegisterExtension
     static final QuarkusProdModeTest config = new QuarkusProdModeTest()

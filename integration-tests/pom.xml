@@ -80,7 +80,7 @@
                 <configuration>
                     <!-- ResourceIT needs a launchable jar/native image and is enabled under the native profile. -->
                     <excludes>
-                        <exclude>**/QuarkusDebianPackagingResourceIT.java</exclude>
+                        <exclude>**/DebianPackagingResourceIT.java</exclude>
                     </excludes>
                     <systemPropertyVariables>
                         <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
