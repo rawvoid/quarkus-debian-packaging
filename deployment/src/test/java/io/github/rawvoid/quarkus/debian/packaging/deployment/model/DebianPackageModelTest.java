@@ -29,6 +29,8 @@ import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
@@ -85,18 +87,26 @@ class DebianPackageModelTest {
         assertTrue(error.getMessage().contains("absolute path"));
     }
 
-    @Test
-    void rejectsRootPath() {
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> resolve(configWithInstallDir("myapp", "/"), payload()));
-        assertTrue(error.getMessage().contains("cannot be the filesystem root"));
+    @ParameterizedTest
+    @ValueSource(strings = {"/", "//", "/etc", "/etc/", "/usr/share"})
+    void rejectsRootPath(String path) {
+        assertThrows(IllegalArgumentException.class,
+                () -> resolve(configWithInstallDir("myapp", path), payload()));
     }
 
-    @Test
-    void rejectsPathTraversal() {
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> resolve(configWithInstallDir("myapp", "/usr/share/../etc"), payload()));
-        assertTrue(error.getMessage().contains("forbidden directory traversal"));
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/usr/share/../etc",
+            "//etc",
+            "/etc/.",
+            "/./etc",
+            "/usr/share/$(whoami)",
+            "/usr/share/\"app\"",
+            "/usr/share/my app"
+    })
+    void rejectsPathTraversal(String path) {
+        assertThrows(IllegalArgumentException.class,
+                () -> resolve(configWithInstallDir("myapp", path), payload()));
     }
 
     @Test
@@ -187,6 +197,25 @@ class DebianPackageModelTest {
                 payload());
         assertEquals("/var/run/custom.sock", modelCustom.socketPath());
         assertEquals("/var/run/custom.sock", modelCustom.templateVariables().get("socketPath"));
+
+        ReloadConfig slashSocketConfig = new ReloadConfig() {
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+
+            @Override
+            public Optional<String> socketPath() {
+                return Optional.of("/var/run/custom.sock/");
+            }
+        };
+        DebianPackageModel modelSlash = DebianPackageModel.resolve(
+                configWithName("my-app"),
+                slashSocketConfig,
+                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
+                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
+                payload());
+        assertEquals("/var/run/custom.sock", modelSlash.socketPath());
     }
 
     @Test

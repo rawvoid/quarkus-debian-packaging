@@ -26,6 +26,7 @@ import org.eclipse.microprofile.config.spi.ConfigSource;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.DebianPaths;
 import io.quarkus.runtime.ApplicationConfig;
 import io.quarkus.runtime.LaunchMode;
 import io.smallrye.config.ConfigSourceContext;
@@ -87,20 +88,15 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
                 .filter(s -> !s.isBlank())
                 .orElse(null);
 
-        Path configFilePath;
-        if (config.configFile().filter(s -> !s.isBlank()).isPresent()) {
-            configFilePath = Path.of(config.configFile().get());
-        } else {
-            if (rawPackageName == null || rawPackageName.isBlank()) {
-                return Collections.emptyList();
-            }
-            String packageName = DebianPackageNames.sanitize(rawPackageName);
-            if (config.configDir().filter(s -> !s.isBlank()).isPresent()) {
-                configFilePath = Path.of(config.configDir().get(), ExternalConfigSource.DEFAULT_CONFIG_FILENAME);
-            } else {
-                configFilePath = Path.of(ExternalConfigSource.DEFAULT_CONFIG_DIR, packageName, ExternalConfigSource.DEFAULT_CONFIG_FILENAME);
-            }
+        if (rawPackageName == null && config.configFile().filter(s -> !s.isBlank()).isEmpty()) {
+            return Collections.emptyList();
         }
+
+        String pathStr = DebianPaths.configFile(
+                rawPackageName,
+                config.configDir().orElse(null),
+                config.configFile().orElse(null));
+        Path configFilePath = Path.of(pathStr);
 
         return Collections.singletonList(new ExternalConfigSource(configFilePath));
     }

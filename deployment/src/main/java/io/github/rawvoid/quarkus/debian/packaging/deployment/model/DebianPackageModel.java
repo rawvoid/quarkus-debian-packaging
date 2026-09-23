@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.DebianPaths;
 import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
@@ -139,14 +140,16 @@ public record DebianPackageModel(
         String serviceGroup = config.serviceGroup()
                 .map(DebianPackageModel::validateUnixAccount)
                 .orElse(serviceUser);
-        String configFile = normalizeAbsolutePath(
-                config.configFile().orElse(configDir + "/" + DEFAULT_CONFIG_FILENAME));
+        String configFile = DebianPaths.configFile(
+                packageName,
+                config.configDir().orElse(null),
+                config.configFile().orElse(null));
         String jvmOptionsFile = configDir + "/" + DEFAULT_JVM_OPTIONS_FILENAME;
         String quarkusRunner = installDir + "/" + payload.mainRelativePath();
 
-        String defaultSocketPath = "/run/" + packageName + "/control.sock";
-        String socketPath = normalizeAbsolutePath(
-                reloadConfig.socketPath().filter(s -> !s.isBlank()).orElse(defaultSocketPath));
+        String socketPath = DebianPaths.socketPath(
+                packageName,
+                reloadConfig.socketPath().orElse(null));
 
         String outputName = config.outputName().orElse(packageName + "_" + version + "_" + architecture + DEB_EXTENSION);
         Path outputFile = outputTarget.getOutputDirectory().resolve(outputName);
@@ -248,29 +251,7 @@ public record DebianPackageModel(
      * Ensures configured install paths are absolute and free of trailing slashes.
      */
     static String normalizeAbsolutePath(String raw) {
-        if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("Path must not be blank.");
-        }
-        String path = raw.trim().replace('\\', '/');
-        if (!path.startsWith("/")) {
-            throw new IllegalArgumentException(
-                    "Path '" + raw + "' must be an absolute path starting with '/'.");
-        }
-        for (String segment : path.split("/+")) {
-            if ("..".equals(segment)) {
-                throw new IllegalArgumentException(
-                        "Path '" + raw + "' contains forbidden directory traversal '..'.");
-            }
-        }
-        String normalized = Path.of(path).normalize().toString().replace('\\', '/');
-        while (normalized.length() > 1 && normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        if ("/".equals(normalized)) {
-            throw new IllegalArgumentException(
-                    "Path '" + raw + "' cannot be the filesystem root '/'.");
-        }
-        return normalized;
+        return DebianPaths.normalize(raw, 2);
     }
 
     static String validateUnixAccount(String raw) {
