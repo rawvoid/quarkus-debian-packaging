@@ -19,9 +19,11 @@ package io.github.rawvoid.quarkus.debian.packaging.runtime.config;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -84,6 +86,20 @@ class ExternalConfigSourceTest {
         source.commit(Map.of("app.timeout", "60s", "app.greeting", "Updated"));
         assertEquals("60s", source.getValue("app.timeout"));
         assertEquals("Updated", source.getValue("app.greeting"));
+    }
+
+    @Test
+    void testLoadFromFileFailsFastWhenUnreadable() throws IOException {
+        Path configFile = tempDir.resolve("unreadable.properties");
+        Files.writeString(configFile, "app.timeout=30s\n");
+
+        if (configFile.toFile().setReadable(false)) {
+            try {
+                assertThrows(UncheckedIOException.class, () -> ExternalConfigSource.loadFromFile(configFile));
+            } finally {
+                configFile.toFile().setReadable(true);
+            }
+        }
     }
 
     @Test

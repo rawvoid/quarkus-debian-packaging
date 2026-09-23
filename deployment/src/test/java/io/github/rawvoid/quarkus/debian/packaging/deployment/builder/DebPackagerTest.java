@@ -74,7 +74,7 @@ class DebPackagerTest {
 
         String unit = new String(data.get("usr/lib/systemd/system/uber-demo.service").content(), StandardCharsets.UTF_8);
         assertFalse(unit.contains("ExecReload="));
-        assertFalse(unit.contains("NoNewPrivileges"));
+        assertTrue(unit.contains("NoNewPrivileges=true"));
         assertTrue(unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
         assertTrue(unit.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
 

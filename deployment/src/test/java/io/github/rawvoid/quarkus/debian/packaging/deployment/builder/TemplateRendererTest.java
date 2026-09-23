@@ -149,7 +149,7 @@ class TemplateRendererTest {
         assertTrue(service.contains("RuntimeDirectoryMode=0750"));
         assertTrue(service.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
         assertTrue(service.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
-        assertFalse(service.contains("NoNewPrivileges"));
+        assertTrue(service.contains("NoNewPrivileges=true"));
         assertFalse(service.contains("EnvironmentFile"));
     }
 
