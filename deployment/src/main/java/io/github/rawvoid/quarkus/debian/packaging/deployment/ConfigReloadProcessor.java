@@ -18,7 +18,10 @@ package io.github.rawvoid.quarkus.debian.packaging.deployment;
 
 import java.util.List;
 
+import org.jboss.jandex.DotName;
+
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.ConfigReloadRecorder;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigCreator;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
@@ -34,7 +37,6 @@ import io.quarkus.deployment.builditem.GeneratedClassBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.runtime.annotations.ConfigRoot;
-import org.jboss.jandex.DotName;
 
 /**
  * Deployment processor that registers config mappings and initializes runtime reload server.
@@ -52,10 +54,15 @@ public class ConfigReloadProcessor {
 
     @BuildStep(onlyIf = DebianEnabled.class)
     public void registerReloadableProxies(
+            ReloadConfig reloadConfig,
             List<ConfigClassBuildItem> configClasses,
             BuildProducer<GeneratedClassBuildItem> generatedClasses,
             BuildProducer<SyntheticBeanBuildItem> syntheticBeans,
             BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
+
+        if (!reloadConfig.enabled()) {
+            return;
+        }
 
         for (ConfigClassBuildItem configClass : configClasses) {
             if (!configClass.isMapping()) {
@@ -88,11 +95,16 @@ public class ConfigReloadProcessor {
     @BuildStep(onlyIf = DebianEnabled.class)
     @Record(ExecutionTime.RUNTIME_INIT)
     public void setupConfigReload(
+            ReloadConfig reloadConfig,
             ConfigReloadRecorder recorder,
             ShutdownContextBuildItem shutdownContext,
             DebianPackagingConfig config,
             ApplicationInfoBuildItem appInfo,
             List<ConfigMappingBuildItem> configMappings) {
+
+        if (!reloadConfig.enabled()) {
+            return;
+        }
 
         for (ConfigMappingBuildItem mapping : configMappings) {
             if (isExcludedFrameworkMapping(mapping)) {
@@ -107,8 +119,9 @@ public class ConfigReloadProcessor {
         }
 
         String defaultSocketPath = DEFAULT_SOCKET_DIR + packageName + "/" + CONTROL_SOCKET_FILENAME;
+        String socketPath = reloadConfig.socketPath().filter(s -> !s.isBlank()).orElse(defaultSocketPath);
 
-        recorder.startControlServer(shutdownContext, defaultSocketPath);
+        recorder.startControlServer(shutdownContext, socketPath);
     }
 
     private static boolean isExcludedFrameworkClass(Class<?> configClass, String prefix) {

@@ -23,14 +23,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
-import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.ShutdownContext;
 
 class ConfigReloadRecorderTest {
@@ -60,62 +57,29 @@ class ConfigReloadRecorderTest {
     }
 
     @Test
-    void testDisabledWhenConfigNull(@TempDir Path tempDir) {
-        Path socketPath = tempDir.resolve("control.sock");
+    void testNullSocketPathDoesNotStartServer() {
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder();
+        recorder.startControlServer(shutdownContext, null);
 
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder(null);
-        recorder.startControlServer(shutdownContext, socketPath.toString());
-
-        assertFalse(Files.exists(socketPath));
         assertTrue(shutdownTasks.isEmpty());
     }
 
     @Test
-    void testDisabledViaReloadEnabled(@TempDir Path tempDir) {
-        Path socketPath = tempDir.resolve("control.sock");
+    void testBlankSocketPathDoesNotStartServer() {
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder();
+        recorder.startControlServer(shutdownContext, "   ");
 
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder(new RuntimeValue<>(runtimeConfig(false, null)));
-        recorder.startControlServer(shutdownContext, socketPath.toString());
-
-        assertFalse(Files.exists(socketPath));
         assertTrue(shutdownTasks.isEmpty());
     }
 
     @Test
-    void testDefaultSocketPath(@TempDir Path tempDir) {
-        Path defaultSocket = tempDir.resolve("default.sock");
+    void testValidSocketPathStartsServer(@TempDir Path tempDir) {
+        Path socketPath = tempDir.resolve("control.sock");
 
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder(new RuntimeValue<>(runtimeConfig(true, null)));
-        recorder.startControlServer(shutdownContext, defaultSocket.toString());
+        ConfigReloadRecorder recorder = new ConfigReloadRecorder();
+        recorder.startControlServer(shutdownContext, socketPath.toString());
 
-        assertTrue(Files.exists(defaultSocket));
+        assertTrue(Files.exists(socketPath));
         assertFalse(shutdownTasks.isEmpty());
-    }
-
-    @Test
-    void testSocketPathOverride(@TempDir Path tempDir) {
-        Path defaultSocket = tempDir.resolve("default.sock");
-        Path overrideSocket = tempDir.resolve("override.sock");
-
-        ConfigReloadRecorder recorder = new ConfigReloadRecorder(new RuntimeValue<>(runtimeConfig(true, overrideSocket.toString())));
-        recorder.startControlServer(shutdownContext, defaultSocket.toString());
-
-        assertFalse(Files.exists(defaultSocket));
-        assertTrue(Files.exists(overrideSocket));
-        assertFalse(shutdownTasks.isEmpty());
-    }
-
-    private static ReloadConfig runtimeConfig(boolean enabled, String socketPath) {
-        return new ReloadConfig() {
-            @Override
-            public boolean enabled() {
-                return enabled;
-            }
-
-            @Override
-            public Optional<String> socketPath() {
-                return Optional.ofNullable(socketPath);
-            }
-        };
     }
 }

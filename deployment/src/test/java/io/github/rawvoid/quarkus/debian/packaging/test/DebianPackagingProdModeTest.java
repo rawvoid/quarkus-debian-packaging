@@ -81,10 +81,11 @@ public class DebianPackagingProdModeTest {
         assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/application.properties"));
         assertTrue(control.get("conffiles").contains("/etc/prod-deb-app/jvm.options"));
 
-        assertTrue(data.containsKey("usr/share/prod-deb-app/reload"));
+        assertFalse(data.containsKey("usr/share/prod-deb-app/reload"));
         assertTrue(data.containsKey("usr/share/prod-deb-app/startup"));
         assertTrue(data.containsKey("usr/bin/prod-deb-app"));
         assertTrue(data.containsKey("usr/lib/systemd/system/prod-deb-app.service"));
+        assertFalse(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecReload="));
         assertTrue(data.containsKey("etc/default/prod-deb-app"));
         String launcher = data.get("usr/bin/prod-deb-app");
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));

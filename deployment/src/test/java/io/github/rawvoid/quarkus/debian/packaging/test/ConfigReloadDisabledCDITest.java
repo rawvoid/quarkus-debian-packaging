@@ -17,9 +17,8 @@
 package io.github.rawvoid.quarkus.debian.packaging.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -30,24 +29,21 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigRegistry;
 import io.quarkus.test.QuarkusUnitTest;
 import io.smallrye.config.ConfigMapping;
 
 /**
- * Integration test verifying that configuration hot-reload creates dynamic proxies when enabled.
+ * Integration test verifying that configuration hot-reload is disabled by default.
  *
  * @author rawvoid
  */
-public class ConfigReloadProxyCDITest {
+public class ConfigReloadDisabledCDITest {
 
     @ConfigMapping(prefix = "greeting")
     public interface GreetingConfig {
         String message();
         int repeat();
     }
-
-    public record GreetingConfigSnapshot(String message, int repeat) implements GreetingConfig {}
 
     @ApplicationScoped
     public static class GreetingService {
@@ -58,10 +54,6 @@ public class ConfigReloadProxyCDITest {
             return config.message();
         }
 
-        public int getRepeat() {
-            return config.repeat();
-        }
-
         public GreetingConfig getConfig() {
             return config;
         }
@@ -70,29 +62,21 @@ public class ConfigReloadProxyCDITest {
     @RegisterExtension
     static final QuarkusUnitTest unitTest = new QuarkusUnitTest()
             .setArchiveProducer(() -> ShrinkWrap.create(JavaArchive.class)
-                    .addClasses(GreetingConfig.class, GreetingConfigSnapshot.class, GreetingService.class)
-                    .addAsResource(new StringAsset("greeting.message=Hello\ngreeting.repeat=3\nquarkus.debian.reload.enabled=true\n"), "application.properties"));
+                    .addClasses(GreetingConfig.class, GreetingService.class)
+                    .addAsResource(new StringAsset("greeting.message=Hello\ngreeting.repeat=3\n"), "application.properties"));
 
     @Inject
     GreetingService service;
 
     @Test
-    void testInjectedProxySwapsSnapshotAtomically() {
-        GreetingConfig proxyInstance = service.getConfig();
-        assertNotNull(proxyInstance);
-        assertTrue(proxyInstance.getClass().getName().contains("$$ReloadProxy"),
-                "Expected injected bean to be the generated $$ReloadProxy class, got: " + proxyInstance.getClass().getName());
+    void testDefaultInjectionUsesNativeSmallRyeBeanWithoutProxy() {
+        GreetingConfig configInstance = service.getConfig();
+        assertNotNull(configInstance);
+
+        // When reload is disabled by default, the bean must NOT be the generated $$ReloadProxy
+        assertFalse(configInstance.getClass().getName().contains("$$ReloadProxy"),
+                "Expected injected bean to be native SmallRye implementation without proxy, got: " + configInstance.getClass().getName());
 
         assertEquals("Hello", service.getMessage());
-        assertEquals(3, service.getRepeat());
-
-        // Perform atomic snapshot swap in registry
-        GreetingConfig updatedSnapshot = new GreetingConfigSnapshot("Bonjour", 5);
-        ReloadableConfigRegistry.swap(GreetingConfig.class, "greeting", updatedSnapshot);
-
-        // Verify service immediately reads new values through same proxy instance
-        assertSame(proxyInstance, service.getConfig(), "Proxy instance identity should remain constant");
-        assertEquals("Bonjour", service.getMessage());
-        assertEquals(5, service.getRepeat());
     }
 }

@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 
@@ -54,6 +55,7 @@ public record DebianPackageModel(
         String serviceGroup,
         String systemdServiceName,
         String systemdUnitFile,
+        boolean reloadEnabled,
         Path outputFile,
         PackagePayload payload) {
 
@@ -83,10 +85,12 @@ public record DebianPackageModel(
 
     public static DebianPackageModel resolve(
             DebianPackagingConfig config,
+            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem appInfo,
             OutputTargetBuildItem outputTarget,
             PackagePayload payload) {
         Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(reloadConfig, "reloadConfig");
         Objects.requireNonNull(appInfo, "appInfo");
         Objects.requireNonNull(outputTarget, "outputTarget");
         Objects.requireNonNull(payload, "payload");
@@ -157,6 +161,7 @@ public record DebianPackageModel(
                 serviceGroup,
                 systemdServiceName,
                 systemdUnitFile,
+                reloadConfig.enabled(),
                 outputFile,
                 payload);
     }

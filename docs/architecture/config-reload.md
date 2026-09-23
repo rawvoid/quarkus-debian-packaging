@@ -6,6 +6,8 @@ This document describes the architectural design and runtime mechanics of the dy
 
 The extension enables live, zero-downtime configuration updates for Quarkus applications packaged as Debian services (`systemd`). Configuration changes applied to `/etc/<app>/application.properties` are reloaded on-demand via a UNIX domain socket command (`systemctl reload <app>` triggering `echo reload | nc -U /run/<app>/control.sock`).
 
+Hot reload is disabled by default (`quarkus.debian.reload.enabled=false`), ensuring zero proxy compilation and zero runtime overhead unless explicitly enabled at build time via `quarkus.debian.reload.enabled=true`.
+
 The architecture is built on three core design invariants:
 1. **Direct Interface Dispatch**: Configuration getters dispatch via AOT-generated proxies backed by direct `AtomicReference` holder references.
 2. **Atomic Snapshot Swapping**: Configuration state transitions atomically via volatile reference updates after candidate snapshot validation succeeds.
@@ -94,4 +96,4 @@ When a reload request arrives via the control socket (`ControlSocketServer`), `C
 
 - **GraalVM Native Image Support**: Proxies are generated ahead-of-time during augmentation; proxy constructors are registered via `ReflectiveClassBuildItem`.
 - **Hot-Path Execution**: Property access executes as a single field dereference (`getfield`) + volatile reference read (`holder.get()`) followed by monomorphic interface invocation.
-- **Build Step Isolation**: Proxy registration runs in `registerReloadableProxies` consuming `ConfigClassBuildItem` prior to Arc injection validation, and runtime recording executes in `setupConfigReload` consuming `ConfigMappingBuildItem`.
+- **Build Step Isolation**: When disabled (default), `registerReloadableProxies` and `setupConfigReload` exit immediately without producing synthetic beans or recording runtime initialization tasks, the reload helper script `/opt/<app>/reload` is not packaged into the Debian archive, and `ExecReload` is omitted from the systemd unit file. When enabled (`quarkus.debian.reload.enabled=true`), proxy registration runs in `registerReloadableProxies` consuming `ConfigClassBuildItem` prior to Arc injection validation, runtime recording executes in `setupConfigReload` consuming `ConfigMappingBuildItem`, the reload helper is packaged, and `ExecReload` is configured in systemd.

@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import org.jboss.logging.Logger;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.builder.DebPackager;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.DebianPackageModel;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.PackagePayload;
@@ -53,31 +54,34 @@ class DebianPackagingProcessor {
     @Produce(ArtifactResultBuildItem.class)
     void packageJvmDeb(
             DebianPackagingConfig config,
+            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem applicationInfo,
             OutputTargetBuildItem outputTarget,
             PackageConfig packageConfig,
             JarBuildItem jar) {
         PackagePayload payload = PayloadResolver.fromJar(jar, packageConfig);
-        buildDeb(config, applicationInfo, outputTarget, payload);
+        buildDeb(config, reloadConfig, applicationInfo, outputTarget, payload);
     }
 
     @BuildStep(onlyIf = { IsProduction.class, NativeBuild.class, DebianEnabled.class })
     @Produce(ArtifactResultBuildItem.class)
     void packageNativeDeb(
             DebianPackagingConfig config,
+            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem applicationInfo,
             OutputTargetBuildItem outputTarget,
             NativeImageBuildItem nativeImage) {
         PackagePayload payload = PayloadResolver.fromNative(nativeImage);
-        buildDeb(config, applicationInfo, outputTarget, payload);
+        buildDeb(config, reloadConfig, applicationInfo, outputTarget, payload);
     }
 
     private static void buildDeb(
             DebianPackagingConfig config,
+            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem applicationInfo,
             OutputTargetBuildItem outputTarget,
             PackagePayload payload) {
-        DebianPackageModel model = DebianPackageModel.resolve(config, applicationInfo, outputTarget, payload);
+        DebianPackageModel model = DebianPackageModel.resolve(config, reloadConfig, applicationInfo, outputTarget, payload);
         Path deb = DebPackager.packageDeb(model);
         LOG.debugf(
                 "Debian package model: name=%s version=%s arch=%s payload=%s path=%s",

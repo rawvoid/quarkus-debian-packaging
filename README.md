@@ -216,11 +216,11 @@ echo "RELOAD" | socat - UNIX-CONNECT:/run/my-app/control.sock
 
 ### Hot Reload Configuration (`quarkus.debian.reload.*`)
 
-Configured at runtime in `src/main/resources/application.properties` or `/etc/<app>/application.properties`:
+Configured at build time in `src/main/resources/application.properties`:
 
 | Property | Default Value | Description |
 |:---|:---|:---|
-| `quarkus.debian.reload.enabled` | `true` | Enables or disables the UNIX domain socket reload server. |
+| `quarkus.debian.reload.enabled` | `false` | Enables configuration hot-reload support, compiling AOT proxies and launching the control socket. |
 | `quarkus.debian.reload.socket-path`| `/run/${packageName}/control.sock` | Path to the UNIX domain control socket. |
 
 ---
