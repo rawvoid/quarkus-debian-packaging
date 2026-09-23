@@ -57,6 +57,8 @@ public final class DebBuilder {
     public static final String ENTRY_CONFFILES = "conffiles";
 
     private static final byte[] DEBIAN_BINARY = "2.0\n".getBytes(StandardCharsets.US_ASCII);
+    private static final int AR_ENTRY_MODE = 0100644;
+    private static final long REPRODUCIBLE_EPOCH = 0L;
 
     private DebBuilder() {
     }
@@ -93,14 +95,14 @@ public final class DebBuilder {
     }
 
     private static void writeArEntry(ArArchiveOutputStream ar, String name, byte[] content) throws IOException {
-        ArArchiveEntry entry = new ArArchiveEntry(name, content.length);
+        ArArchiveEntry entry = new ArArchiveEntry(name, content.length, 0, 0, AR_ENTRY_MODE, REPRODUCIBLE_EPOCH);
         ar.putArchiveEntry(entry);
         ar.write(content);
         ar.closeArchiveEntry();
     }
 
     private static void writeArEntry(ArArchiveOutputStream ar, String name, Path content) throws IOException {
-        ArArchiveEntry entry = new ArArchiveEntry(name, Files.size(content));
+        ArArchiveEntry entry = new ArArchiveEntry(name, Files.size(content), 0, 0, AR_ENTRY_MODE, REPRODUCIBLE_EPOCH);
         ar.putArchiveEntry(entry);
         Files.copy(content, ar);
         ar.closeArchiveEntry();
@@ -139,6 +141,7 @@ public final class DebBuilder {
 
         GzipParameters gzip = new GzipParameters();
         gzip.setOperatingSystem(3); // Unix
+        gzip.setModificationTime(REPRODUCIBLE_EPOCH);
         try (OutputStream fileOut = Files.newOutputStream(dataTarGz);
                 GzipCompressorOutputStream gz = new GzipCompressorOutputStream(fileOut, gzip);
                 TarArchiveOutputStream tar = new TarArchiveOutputStream(gz, StandardCharsets.UTF_8.name())) {
@@ -179,6 +182,7 @@ public final class DebBuilder {
         List<DebEntry> expanded = includeParents ? expandWithParentDirs(entries) : entries;
         GzipParameters gzip = new GzipParameters();
         gzip.setOperatingSystem(3);
+        gzip.setModificationTime(REPRODUCIBLE_EPOCH);
         try (OutputStream fileOut = Files.newOutputStream(target);
                 GzipCompressorOutputStream gz = new GzipCompressorOutputStream(fileOut, gzip);
                 TarArchiveOutputStream tar = new TarArchiveOutputStream(gz, StandardCharsets.UTF_8.name())) {

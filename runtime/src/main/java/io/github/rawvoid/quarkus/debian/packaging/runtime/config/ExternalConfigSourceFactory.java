@@ -27,6 +27,7 @@ import org.eclipse.microprofile.config.spi.ConfigSource;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.quarkus.runtime.ApplicationConfig;
+import io.quarkus.runtime.LaunchMode;
 import io.smallrye.config.ConfigSourceContext;
 import io.smallrye.config.ConfigSourceFactory.ConfigurableConfigSourceFactory;
 import io.smallrye.config.SmallRyeConfig;
@@ -74,6 +75,10 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
             DebianPackagingConfig config,
             ApplicationConfig appConfig) {
         if (!config.enabled()) {
+            return Collections.emptyList();
+        }
+
+        if (LaunchMode.current() == LaunchMode.DEVELOPMENT && config.configFile().filter(s -> !s.isBlank()).isEmpty()) {
             return Collections.emptyList();
         }
 
