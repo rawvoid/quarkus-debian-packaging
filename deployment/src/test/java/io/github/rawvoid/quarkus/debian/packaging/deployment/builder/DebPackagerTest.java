@@ -68,11 +68,15 @@ class DebPackagerTest {
         assertFalse(data.containsKey("usr/share/uber-demo/reload"));
         assertTrue(data.containsKey("usr/share/uber-demo/startup"));
         assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/uber-demo/startup").mode() & 0777);
-        assertFalse(data.containsKey("usr/share/uber-demo/environment"));
         assertTrue(data.containsKey("etc/uber-demo/jvm.options"));
+        assertEquals(DebEntry.MODE_CONFIG, data.get("etc/uber-demo/jvm.options").mode() & 0777);
+        assertEquals(DebEntry.MODE_CONFIG, data.get("etc/uber-demo/application.properties").mode() & 0777);
 
         String unit = new String(data.get("usr/lib/systemd/system/uber-demo.service").content(), StandardCharsets.UTF_8);
         assertFalse(unit.contains("ExecReload="));
+        assertFalse(unit.contains("NoNewPrivileges"));
+        assertTrue(unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
+        assertTrue(unit.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
 
         String launcher = new String(data.get("usr/bin/uber-demo").content(), StandardCharsets.UTF_8);
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));

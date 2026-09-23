@@ -70,6 +70,9 @@ public class DebianPackagingDebIT {
         String postinst = controlFiles.get("postinst");
         assertTrue(postinst.contains("create_service_account()"));
         assertTrue(postinst.contains("systemctl --system daemon-reload"));
+        assertTrue(postinst.contains("JVM_OPTIONS_FILE=\"/etc/quarkus-debian-packaging-integration-tests/jvm.options\""));
+        assertTrue(postinst.contains("chmod 0640 \"${JVM_OPTIONS_FILE}\""));
+        assertTrue(postinst.contains("chown root:\"${SERVICE_GROUP}\" \"${JVM_OPTIONS_FILE}\""));
 
         Map<String, String> dataFiles = readTarGzAsStrings(ar.get("data.tar.gz"));
         assertTrue(containsPathSuffix(dataFiles, "/quarkus-run.jar") || dataFiles.keySet().stream()
@@ -89,6 +92,15 @@ public class DebianPackagingDebIT {
                 "Expected startup script in package payload");
         assertFalse(dataFiles.keySet().stream().anyMatch(p -> p.endsWith("/environment")),
                 "Did not expect environment script in package payload");
+
+        String unit = dataFiles.entrySet().stream()
+                .filter(e -> e.getKey().contains("systemd/system/") && e.getKey().endsWith(".service"))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
+        assertTrue(unit.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
+        assertFalse(unit.contains("NoNewPrivileges"));
 
         String defaults = dataFiles.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("etc/default/"))

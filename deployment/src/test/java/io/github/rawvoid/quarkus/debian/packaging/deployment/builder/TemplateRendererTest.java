@@ -121,12 +121,16 @@ class TemplateRendererTest {
                 "installDir", "/usr/share/demo",
                 "configDir", "/etc/demo",
                 "configFile", "/etc/demo/application.properties",
+                "jvmOptionsFile", "/etc/demo/jvm.options",
                 "dataDir", "/var/lib/demo",
                 "logDir", "/var/log/demo"));
         assertTrue(postinst.contains("CONFIG_FILE=\"/etc/demo/application.properties\""));
+        assertTrue(postinst.contains("JVM_OPTIONS_FILE=\"/etc/demo/jvm.options\""));
         assertTrue(postinst.contains("chmod 0750 \"${CONFIG_DIR}\""));
         assertTrue(postinst.contains("chmod 0640 \"${CONFIG_FILE}\""));
         assertTrue(postinst.contains("chown root:\"${SERVICE_GROUP}\" \"${CONFIG_FILE}\""));
+        assertTrue(postinst.contains("chmod 0640 \"${JVM_OPTIONS_FILE}\""));
+        assertTrue(postinst.contains("chown root:\"${SERVICE_GROUP}\" \"${JVM_OPTIONS_FILE}\""));
     }
 
     @Test
@@ -143,6 +147,9 @@ class TemplateRendererTest {
         assertTrue(service.contains("ExecReload=/usr/bin/demo --reload"));
         assertTrue(service.contains("RuntimeDirectory=demo"));
         assertTrue(service.contains("RuntimeDirectoryMode=0750"));
+        assertTrue(service.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
+        assertTrue(service.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
+        assertFalse(service.contains("NoNewPrivileges"));
         assertFalse(service.contains("EnvironmentFile"));
     }
 

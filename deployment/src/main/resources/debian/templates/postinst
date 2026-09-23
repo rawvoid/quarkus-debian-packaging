@@ -8,6 +8,7 @@ SERVICE_GROUP="${serviceGroup}"
 INSTALL_DIR="${installDir}"
 CONFIG_DIR="${configDir}"
 CONFIG_FILE="${configFile}"
+JVM_OPTIONS_FILE="${jvmOptionsFile}"
 DATA_DIR="${dataDir}"
 LOG_DIR="${logDir}"
 
@@ -42,6 +43,11 @@ create_directories() {
     if [ -f "${CONFIG_FILE}" ]; then
         chown root:"${SERVICE_GROUP}" "${CONFIG_FILE}"
         chmod 0640 "${CONFIG_FILE}"
+    fi
+
+    if [ -f "${JVM_OPTIONS_FILE}" ]; then
+        chown root:"${SERVICE_GROUP}" "${JVM_OPTIONS_FILE}"
+        chmod 0640 "${JVM_OPTIONS_FILE}"
     fi
 }
 
