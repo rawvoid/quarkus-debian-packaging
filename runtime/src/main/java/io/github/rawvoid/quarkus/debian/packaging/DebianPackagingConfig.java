@@ -77,10 +77,10 @@ public interface DebianPackagingConfig {
     Optional<String> architecture();
 
     /**
-     * Control Depends field.
+     * Additional package dependencies to include in the Debian control Depends field.
+     * When unset, dependencies are computed automatically based on package type and features.
      */
-    @WithDefault("systemd, python3")
-    String depends();
+    Optional<String> depends();
 
     /**
      * Installation directory for the application payload (e.g. {@code /usr/share/my-app}).

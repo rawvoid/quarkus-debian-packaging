@@ -73,7 +73,8 @@ public class DebianPackagingProdModeTest {
 
         assertTrue(control.get("control").contains("Package: prod-deb-app"));
         assertTrue(control.get("control").contains("Maintainer: CI <ci@example.com>"));
-        assertTrue(control.get("control").contains("Depends: systemd, python3"));
+        assertTrue(control.get("control").contains("Depends: systemd, default-jre-headless | java-runtime-headless"));
+        assertFalse(control.get("control").contains("python3"));
         assertTrue(control.get("control").contains("Architecture: all"));
         assertTrue(control.containsKey("postinst"));
         assertTrue(control.containsKey("conffiles"));
