@@ -9,8 +9,8 @@ User=${serviceUser}
 Group=${serviceGroup}
 
 WorkingDirectory=-${installDir}
-ExecStart=${binFile}
-ExecReload=${binFile} --reload
+ExecStart=${executableFile}
+ExecReload=${executableFile} --reload
 RuntimeDirectory=${packageName}
 RuntimeDirectoryMode=0750
 SuccessExitStatus=143

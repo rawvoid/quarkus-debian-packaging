@@ -108,19 +108,19 @@ public interface DebianPackagingConfig {
     Optional<String> logDir();
 
     /**
-     * Absolute path of the launcher script (e.g. {@code /usr/bin/my-app}).
+     * Absolute path of the executable launcher script (e.g. {@code /usr/bin/my-app}).
      */
-    Optional<String> binPath();
+    Optional<String> executableFile();
 
     /**
      * Absolute path of the defaults EnvironmentFile (e.g. {@code /etc/default/my-app}).
      */
-    Optional<String> defaultsPath();
+    Optional<String> defaultsFile();
 
     /**
      * Absolute path of the systemd unit file.
      */
-    Optional<String> systemdUnitPath();
+    Optional<String> systemdUnitFile();
 
     /**
      * System service user.

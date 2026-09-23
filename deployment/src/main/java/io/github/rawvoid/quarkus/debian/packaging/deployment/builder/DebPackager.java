@@ -81,7 +81,7 @@ public final class DebPackager {
 
         // Launcher (public entrypoint)
         entries.add(DebEntry.bytes(
-                stripLeadingSlash(model.binFile()),
+                stripLeadingSlash(model.executableFile()),
                 TemplateRenderer.renderBytes("launcher.sh", vars),
                 DebEntry.MODE_EXEC,
                 false));

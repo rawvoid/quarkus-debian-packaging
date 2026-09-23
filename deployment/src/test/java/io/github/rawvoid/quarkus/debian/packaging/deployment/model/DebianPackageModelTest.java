@@ -225,17 +225,17 @@ class DebianPackageModelTest {
             }
 
             @Override
-            public Optional<String> binPath() {
+            public Optional<String> executableFile() {
                 return Optional.empty();
             }
 
             @Override
-            public Optional<String> defaultsPath() {
+            public Optional<String> defaultsFile() {
                 return Optional.empty();
             }
 
             @Override
-            public Optional<String> systemdUnitPath() {
+            public Optional<String> systemdUnitFile() {
                 return Optional.empty();
             }
 
