@@ -63,30 +63,29 @@ public class ConfigReloadService {
     }
 
     public synchronized ReloadResult reload() {
-        ExternalConfigSource configSource = ExternalConfigSource.getInstance();
-        if (configSource == null) {
+        ExternalConfigGroup group = ExternalConfigGroup.getInstance();
+        if (group == null || group.getSources().isEmpty()) {
             LOG.warn("Configuration reload aborted: external configuration source is not active.");
             return new ReloadResult(false, "External configuration source is not active.", 0);
         }
 
-        Path configFile = configSource.getConfigFile();
-        if (configFile == null) {
+        Path mainConfigFile = group.getMainConfigFile();
+        if (mainConfigFile == null) {
             LOG.warn("Configuration reload aborted: external configuration file path is not defined.");
             return new ReloadResult(false, "External configuration file path is not defined.", 0);
         }
 
-        if (!Files.isRegularFile(configFile) || !Files.isReadable(configFile)) {
-            LOG.warnf("Configuration reload aborted: configuration file is not readable or does not exist: %s", configFile);
-            return new ReloadResult(false, "Configuration file is not readable or does not exist: " + configFile, 0);
-        }
-
-        // Phase 1: Load raw properties from disk
-        Map<String, String> newProps;
-        try {
-            newProps = ExternalConfigSource.loadFromFile(configFile);
-        } catch (Exception e) {
-            LOG.warnf(e, "Configuration reload aborted: syntax or IO error while reading %s", configFile);
-            return new ReloadResult(false, "Syntax or IO error while reading " + configFile + ": " + e.getMessage(), 0);
+        // Phase 1: Load raw properties from disk for all sources in group
+        Map<ExternalConfigSource, Map<String, String>> newPropsMap = new HashMap<>();
+        for (ExternalConfigSource source : group.getSources()) {
+            Path file = source.getConfigFile();
+            try {
+                Map<String, String> loaded = ExternalConfigSource.loadFromFile(file);
+                newPropsMap.put(source, loaded);
+            } catch (Exception e) {
+                LOG.warnf(e, "Configuration reload aborted: syntax or IO error while reading %s", file);
+                return new ReloadResult(false, "Syntax or IO error while reading " + file + ": " + e.getMessage(), 0);
+            }
         }
 
         // Phase 2: Validate against SmallRyeConfig and create snapshots for registered mappings
@@ -100,7 +99,9 @@ public class ConfigReloadService {
                     testSources.add(src);
                 }
             }
-            testSources.add(new InMemoryConfigSource(configSource.getName(), configSource.getOrdinal(), newProps));
+            for (ExternalConfigSource source : group.getSources()) {
+                testSources.add(new InMemoryConfigSource(source.getName(), source.getOrdinal(), newPropsMap.get(source)));
+            }
 
             SmallRyeConfigBuilder builder = ConfigUtils.emptyConfigBuilder()
                     .setAddDefaultSources(false)
@@ -128,17 +129,25 @@ public class ConfigReloadService {
                 }
             } catch (ConfigValidationException e) {
                 String errorMsg = formatValidationErrors(e);
-                LOG.warnf("Configuration validation failed while reloading %s:\n%s", configFile, errorMsg);
+                LOG.warnf("Configuration validation failed while reloading %s:\n%s", mainConfigFile, errorMsg);
                 return new ReloadResult(false, "Configuration validation failed:\n" + errorMsg, 0);
             } catch (Exception e) {
-                LOG.warnf(e, "Configuration mapping failed while reloading %s", configFile);
+                LOG.warnf(e, "Configuration mapping failed while reloading %s", mainConfigFile);
                 return new ReloadResult(false, "Configuration mapping failed: " + e.getMessage(), 0);
             }
         }
 
         // Phase 3: Validation passed - commit properties and swap active snapshots atomically
-        Map<String, String> oldProps = configSource.getProperties();
-        configSource.commit(newProps);
+        Set<String> changedKeys = new HashSet<>();
+        Map<String, String> combinedNewProps = new HashMap<>();
+
+        for (ExternalConfigSource source : group.getSources()) {
+            Map<String, String> oldProps = source.getProperties();
+            Map<String, String> newProps = newPropsMap.get(source);
+            changedKeys.addAll(calculateChangedKeys(oldProps, newProps));
+            combinedNewProps.putAll(newProps);
+            source.commit(newProps);
+        }
 
         for (Map.Entry<ConfigMappingKey, Object> entry : newSnapshots.entrySet()) {
             ConfigMappingKey reg = entry.getKey();
@@ -147,11 +156,10 @@ public class ConfigReloadService {
         }
 
         // Phase 4: Publish CDI event
-        Set<String> changedKeys = calculateChangedKeys(oldProps, newProps);
-        fireReloadedEvent(configFile, newProps, changedKeys);
+        fireReloadedEvent(mainConfigFile, combinedNewProps, changedKeys);
 
         LOG.infof("Configuration reloaded successfully from %s: %d properties updated (%s)",
-                configFile, changedKeys.size(), changedKeys);
+                mainConfigFile, changedKeys.size(), changedKeys);
 
         return new ReloadResult(true, "Configuration reloaded successfully. " + changedKeys.size() + " properties updated.", changedKeys.size());
     }
