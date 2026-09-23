@@ -48,7 +48,7 @@ public record DebianPackageModel(
         String configFile,
         String jvmOptionsFile,
         String defaultsFile,
-        String binFile,
+        String executableFile,
         String mainExecutable,
         String serviceUser,
         String serviceGroup,
@@ -104,21 +104,22 @@ public record DebianPackageModel(
                 config.dataDir().orElse("/var/lib/" + packageName), "quarkus.debian.data-dir");
         String logDir = normalizeAbsolutePath(
                 config.logDir().orElse("/var/log/" + packageName), "quarkus.debian.log-dir");
-        String binFile = normalizeAbsolutePath(
-                config.binPath().orElse("/usr/bin/" + packageName), "quarkus.debian.bin-path");
+        String executableFile = normalizeAbsolutePath(
+                config.executableFile().orElse("/usr/bin/" + packageName), "quarkus.debian.executable-file");
         String defaultsFile = normalizeAbsolutePath(
-                config.defaultsPath().orElse("/etc/default/" + packageName), "quarkus.debian.defaults-path");
+                config.defaultsFile().orElse("/etc/default/" + packageName), "quarkus.debian.defaults-file");
         String systemdServiceName = packageName + ".service";
         String systemdUnitFile = normalizeAbsolutePath(
-                config.systemdUnitPath().orElse("/usr/lib/systemd/system/" + systemdServiceName),
-                "quarkus.debian.systemd-unit-path");
+                config.systemdUnitFile().orElse("/usr/lib/systemd/system/" + systemdServiceName),
+                "quarkus.debian.systemd-unit-file");
         String serviceUser = config.serviceUser()
                 .map(value -> validateUnixAccount(value, "quarkus.debian.service-user"))
                 .orElseGet(() -> deriveUnixAccountName(packageName));
         String serviceGroup = config.serviceGroup()
                 .map(value -> validateUnixAccount(value, "quarkus.debian.service-group"))
                 .orElse(serviceUser);
-        String configFile = configDir + "/application.properties";
+        String configFile = normalizeAbsolutePath(
+                config.configFile().orElse(configDir + "/application.properties"), "quarkus.debian.config-file");
         String jvmOptionsFile = configDir + "/jvm.options";
         String mainExecutable = installDir + "/" + payload.mainRelativePath();
 
@@ -141,7 +142,7 @@ public record DebianPackageModel(
                 configFile,
                 jvmOptionsFile,
                 defaultsFile,
-                binFile,
+                executableFile,
                 mainExecutable,
                 serviceUser,
                 serviceGroup,
@@ -168,7 +169,8 @@ public record DebianPackageModel(
         vars.put("configFile", configFile);
         vars.put("jvmOptionsFile", jvmOptionsFile);
         vars.put("defaultsFile", defaultsFile);
-        vars.put("binFile", binFile);
+        vars.put("executableFile", executableFile);
+        vars.put("binFile", executableFile);
         vars.put("mainExecutable", mainExecutable);
         vars.put("serviceUser", serviceUser);
         vars.put("serviceGroup", serviceGroup);

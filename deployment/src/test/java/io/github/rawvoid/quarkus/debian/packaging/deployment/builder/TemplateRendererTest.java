@@ -106,7 +106,7 @@ class TemplateRendererTest {
                 "serviceGroup", "demo",
                 "installDir", "/usr/share/demo",
                 "defaultsFile", "/etc/default/demo",
-                "binFile", "/usr/bin/demo",
+                "executableFile", "/usr/bin/demo",
                 "packageName", "demo"));
         assertTrue(service.contains("ExecStart=/usr/bin/demo"));
         assertTrue(service.contains("ExecReload=/usr/bin/demo --reload"));
