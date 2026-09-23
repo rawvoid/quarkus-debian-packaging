@@ -95,7 +95,8 @@ public class DebianPackagingDebIT {
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElseThrow();
-        assertTrue(defaults.contains("QUARKUS_CONFIG_LOCATIONS=file:"));
+        assertTrue(defaults.contains("# Runtime options for"));
+        assertFalse(defaults.contains("QUARKUS_CONFIG_LOCATIONS"));
 
         String launcher = dataFiles.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("usr/bin/"))

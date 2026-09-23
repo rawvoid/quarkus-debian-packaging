@@ -49,6 +49,18 @@ class ExternalConfigSourceTest {
     }
 
     @Test
+    void testOrdinalHierarchyAgainstStandardSources() {
+        Path configFile = tempDir.resolve("application.properties");
+        ExternalConfigSource source = new ExternalConfigSource(configFile);
+
+        // Ordinal 275 sits above internal application.properties (250)
+        // and below environment variables (300)
+        assertEquals(275, source.getOrdinal());
+        assertTrue(source.getOrdinal() > 250, "ExternalConfigSource must override classpath application.properties");
+        assertTrue(source.getOrdinal() < 300, "ExternalConfigSource must yield to environment variables");
+    }
+
+    @Test
     void testLoadAndCommit() throws IOException {
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "app.timeout=30s\napp.greeting=Hello World\n");
