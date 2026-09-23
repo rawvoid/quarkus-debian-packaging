@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * Thread-safe registry providing atomic pointer swapping for reloadable configuration mappings.
@@ -28,27 +29,32 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class ReloadableConfigRegistry {
 
-    public record MappingKey(Class<?> mappingClass, String prefix) {
-        public MappingKey {
-            Objects.requireNonNull(mappingClass, "mappingClass must not be null");
-            prefix = prefix != null ? prefix : "";
-        }
-    }
-
-    private static final Map<MappingKey, AtomicReference<Object>> REGISTRY = new ConcurrentHashMap<>();
+    private static final Map<ConfigMappingKey, AtomicReference<Object>> REGISTRY = new ConcurrentHashMap<>();
 
     private ReloadableConfigRegistry() {
     }
 
-    public static void register(Class<?> mappingClass, String prefix, Object initialSnapshot) {
+    public static AtomicReference<Object> getHolder(Class<?> mappingClass, String prefix) {
         Objects.requireNonNull(mappingClass, "mappingClass must not be null");
-        REGISTRY.computeIfAbsent(new MappingKey(mappingClass, prefix), k -> new AtomicReference<>(initialSnapshot))
-                .set(initialSnapshot);
+        return REGISTRY.computeIfAbsent(new ConfigMappingKey(mappingClass, prefix), k -> new AtomicReference<>());
+    }
+
+    public static void register(Class<?> mappingClass, String prefix, Object initialSnapshot) {
+        Objects.requireNonNull(initialSnapshot, "initialSnapshot must not be null");
+        getHolder(mappingClass, prefix).set(initialSnapshot);
+    }
+
+    public static void registerIfAbsent(Class<?> mappingClass, String prefix, Supplier<Object> snapshotSupplier) {
+        Objects.requireNonNull(snapshotSupplier, "snapshotSupplier must not be null");
+        var holder = getHolder(mappingClass, prefix);
+        if (holder.get() == null) {
+            holder.compareAndSet(null, snapshotSupplier.get());
+        }
     }
 
     @SuppressWarnings("unchecked")
     public static <T> T get(Class<T> mappingClass, String prefix) {
-        var ref = REGISTRY.get(new MappingKey(mappingClass, prefix));
+        var ref = REGISTRY.get(new ConfigMappingKey(mappingClass, prefix));
         if (ref == null) {
             return null;
         }
@@ -56,10 +62,8 @@ public final class ReloadableConfigRegistry {
     }
 
     public static void swap(Class<?> mappingClass, String prefix, Object newSnapshot) {
-        Objects.requireNonNull(mappingClass, "mappingClass must not be null");
         Objects.requireNonNull(newSnapshot, "newSnapshot must not be null");
-        REGISTRY.computeIfAbsent(new MappingKey(mappingClass, prefix), k -> new AtomicReference<>(newSnapshot))
-                .set(newSnapshot);
+        getHolder(mappingClass, prefix).set(newSnapshot);
     }
 
     public static void clear() {

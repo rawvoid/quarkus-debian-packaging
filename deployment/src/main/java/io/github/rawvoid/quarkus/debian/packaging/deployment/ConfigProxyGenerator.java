@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigRegistry;
 import io.quarkus.deployment.annotations.BuildProducer;
@@ -30,6 +31,7 @@ import io.quarkus.gizmo.BranchResult;
 import io.quarkus.gizmo.BytecodeCreator;
 import io.quarkus.gizmo.ClassCreator;
 import io.quarkus.gizmo.ClassOutput;
+import io.quarkus.gizmo.FieldCreator;
 import io.quarkus.gizmo.MethodCreator;
 import io.quarkus.gizmo.MethodDescriptor;
 import io.quarkus.gizmo.ResultHandle;
@@ -66,12 +68,22 @@ public final class ConfigProxyGenerator {
                 .interfaces(interfaceClass)
                 .build()) {
 
-            // Default constructor
+            // Direct AtomicReference holder field to guarantee zero-allocation and zero-lookup hot path
+            FieldCreator holderField = cc.getFieldCreator("holder", AtomicReference.class)
+                    .setModifiers(Modifier.PRIVATE | Modifier.FINAL);
+
+            // Default constructor binding the holder
             MethodCreator ctor = cc.getMethodCreator(MethodDescriptor.INIT, void.class);
             ctor.invokeSpecialMethod(MethodDescriptor.ofConstructor(Object.class), ctor.getThis());
+            ResultHandle holderHandle = ctor.invokeStaticMethod(
+                    MethodDescriptor.ofMethod(ReloadableConfigRegistry.class, "getHolder", AtomicReference.class, Class.class, String.class),
+                    ctor.loadClass(interfaceClass),
+                    ctor.load(prefix != null ? prefix : "")
+            );
+            ctor.writeInstanceField(holderField.getFieldDescriptor(), ctor.getThis(), holderHandle);
             ctor.returnVoid();
 
-            // Delegate all interface methods
+            // Delegate all interface methods via holder.get()
             Set<String> generatedSignatures = new HashSet<>();
             for (Method method : interfaceClass.getMethods()) {
                 if (Modifier.isStatic(method.getModifiers()) || method.getDeclaringClass().equals(Object.class)) {
@@ -83,10 +95,10 @@ public final class ConfigProxyGenerator {
                 }
 
                 MethodCreator mc = cc.getMethodCreator(MethodDescriptor.ofMethod(method));
-                ResultHandle target = mc.invokeStaticMethod(
-                        MethodDescriptor.ofMethod(ReloadableConfigRegistry.class, "get", Object.class, Class.class, String.class),
-                        mc.loadClass(interfaceClass),
-                        mc.load(prefix != null ? prefix : "")
+                ResultHandle holder = mc.readInstanceField(holderField.getFieldDescriptor(), mc.getThis());
+                ResultHandle target = mc.invokeVirtualMethod(
+                        MethodDescriptor.ofMethod(AtomicReference.class, "get", Object.class),
+                        holder
                 );
                 ResultHandle typedTarget = mc.checkCast(target, interfaceClass);
 
@@ -105,10 +117,10 @@ public final class ConfigProxyGenerator {
 
             // Object#toString delegation
             MethodCreator ts = cc.getMethodCreator("toString", String.class);
-            ResultHandle tsTarget = ts.invokeStaticMethod(
-                    MethodDescriptor.ofMethod(ReloadableConfigRegistry.class, "get", Object.class, Class.class, String.class),
-                    ts.loadClass(interfaceClass),
-                    ts.load(prefix != null ? prefix : "")
+            ResultHandle tsHolder = ts.readInstanceField(holderField.getFieldDescriptor(), ts.getThis());
+            ResultHandle tsTarget = ts.invokeVirtualMethod(
+                    MethodDescriptor.ofMethod(AtomicReference.class, "get", Object.class),
+                    tsHolder
             );
             BranchResult tsBranch = ts.ifNull(tsTarget);
             BytecodeCreator tsNull = tsBranch.trueBranch();
@@ -121,10 +133,10 @@ public final class ConfigProxyGenerator {
 
             // Object#hashCode delegation
             MethodCreator hc = cc.getMethodCreator("hashCode", int.class);
-            ResultHandle hcTarget = hc.invokeStaticMethod(
-                    MethodDescriptor.ofMethod(ReloadableConfigRegistry.class, "get", Object.class, Class.class, String.class),
-                    hc.loadClass(interfaceClass),
-                    hc.load(prefix != null ? prefix : "")
+            ResultHandle hcHolder = hc.readInstanceField(holderField.getFieldDescriptor(), hc.getThis());
+            ResultHandle hcTarget = hc.invokeVirtualMethod(
+                    MethodDescriptor.ofMethod(AtomicReference.class, "get", Object.class),
+                    hcHolder
             );
             BranchResult hcBranch = hc.ifNull(hcTarget);
             BytecodeCreator hcNull = hcBranch.trueBranch();
@@ -140,10 +152,10 @@ public final class ConfigProxyGenerator {
 
             // Object#equals delegation
             MethodCreator eq = cc.getMethodCreator("equals", boolean.class, Object.class);
-            ResultHandle eqTarget = eq.invokeStaticMethod(
-                    MethodDescriptor.ofMethod(ReloadableConfigRegistry.class, "get", Object.class, Class.class, String.class),
-                    eq.loadClass(interfaceClass),
-                    eq.load(prefix != null ? prefix : "")
+            ResultHandle eqHolder = eq.readInstanceField(holderField.getFieldDescriptor(), eq.getThis());
+            ResultHandle eqTarget = eq.invokeVirtualMethod(
+                    MethodDescriptor.ofMethod(AtomicReference.class, "get", Object.class),
+                    eqHolder
             );
             BranchResult eqBranch = eq.ifNull(eqTarget);
             BytecodeCreator eqNull = eqBranch.trueBranch();

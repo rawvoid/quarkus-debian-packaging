@@ -18,16 +18,14 @@ package io.github.rawvoid.quarkus.debian.packaging.runtime;
 
 import java.nio.file.Path;
 
-import org.eclipse.microprofile.config.ConfigProvider;
-
 import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigCreator;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ReloadableConfigRegistry;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.socket.ControlSocketServer;
 import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
-import io.smallrye.config.SmallRyeConfig;
 
 /**
  * Quarkus bytecode recorder for registering config mappings and starting the control socket server.
@@ -57,13 +55,7 @@ public class ConfigReloadRecorder {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
             Class<?> clazz = Class.forName(className, false, cl);
             RELOAD_SERVICE.registerMapping(clazz, prefix);
-            if (ReloadableConfigRegistry.get(clazz, prefix) == null) {
-                SmallRyeConfig currentConfig = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
-                Object snapshot = (prefix != null && !prefix.isEmpty())
-                        ? currentConfig.getConfigMapping(clazz, prefix)
-                        : currentConfig.getConfigMapping(clazz);
-                ReloadableConfigRegistry.register(clazz, prefix, snapshot);
-            }
+            ReloadableConfigRegistry.registerIfAbsent(clazz, prefix, () -> ReloadableConfigCreator.fetchCurrentSnapshot(clazz, prefix));
         } catch (ClassNotFoundException ignored) {
         }
     }

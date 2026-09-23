@@ -57,6 +57,31 @@ class ReloadableConfigRegistryTest {
     }
 
     @Test
+    void testGetHolderDirectRead() {
+        var initial = new DummyConfigImpl("app", 8080);
+        ReloadableConfigRegistry.register(DummyConfig.class, "holder-test", initial);
+
+        var holder = ReloadableConfigRegistry.getHolder(DummyConfig.class, "holder-test");
+        assertNotNull(holder);
+        assertSame(initial, holder.get());
+
+        var updated = new DummyConfigImpl("app-updated", 9090);
+        ReloadableConfigRegistry.swap(DummyConfig.class, "holder-test", updated);
+        assertSame(updated, holder.get());
+    }
+
+    @Test
+    void testRegisterIfAbsent() {
+        var initial = new DummyConfigImpl("app-1", 1000);
+        ReloadableConfigRegistry.registerIfAbsent(DummyConfig.class, "lazy", () -> initial);
+        assertSame(initial, ReloadableConfigRegistry.get(DummyConfig.class, "lazy"));
+
+        var second = new DummyConfigImpl("app-2", 2000);
+        ReloadableConfigRegistry.registerIfAbsent(DummyConfig.class, "lazy", () -> second);
+        assertSame(initial, ReloadableConfigRegistry.get(DummyConfig.class, "lazy"));
+    }
+
+    @Test
     void testAtomicSwap() {
         var v1 = new DummyConfigImpl("app-v1", 8080);
         var v2 = new DummyConfigImpl("app-v2", 9090);

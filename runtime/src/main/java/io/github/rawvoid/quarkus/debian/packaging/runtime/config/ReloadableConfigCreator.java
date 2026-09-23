@@ -29,6 +29,13 @@ import io.smallrye.config.SmallRyeConfig;
  */
 public class ReloadableConfigCreator implements BeanCreator<Object> {
 
+    public static Object fetchCurrentSnapshot(Class<?> clazz, String prefix) {
+        SmallRyeConfig currentConfig = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
+        return (prefix != null && !prefix.isEmpty())
+                ? currentConfig.getConfigMapping(clazz, prefix)
+                : currentConfig.getConfigMapping(clazz);
+    }
+
     @Override
     public Object create(SyntheticCreationalContext<Object> context) {
         String proxyClassName = (String) context.getParams().get("proxyClassName");
@@ -38,13 +45,7 @@ public class ReloadableConfigCreator implements BeanCreator<Object> {
         try {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
             Class<?> clazz = Class.forName(mappingClassName, false, cl);
-            if (ReloadableConfigRegistry.get(clazz, prefix) == null) {
-                SmallRyeConfig currentConfig = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
-                Object snapshot = (prefix != null && !prefix.isEmpty())
-                        ? currentConfig.getConfigMapping(clazz, prefix)
-                        : currentConfig.getConfigMapping(clazz);
-                ReloadableConfigRegistry.register(clazz, prefix, snapshot);
-            }
+            ReloadableConfigRegistry.registerIfAbsent(clazz, prefix, () -> fetchCurrentSnapshot(clazz, prefix));
             Class<?> proxyClass = Class.forName(proxyClassName, false, cl);
             return proxyClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {

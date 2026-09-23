@@ -18,6 +18,7 @@ package io.github.rawvoid.quarkus.debian.packaging.runtime.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -28,10 +29,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.quarkus.runtime.configuration.ConfigUtils;
+import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
 
@@ -92,5 +95,46 @@ class ConfigReloadServiceTest {
 
         assertEquals(Duration.ofSeconds(30), candidateConfig.convert("30s", Duration.class));
         assertEquals(StandardCharsets.UTF_8, candidateConfig.convert("UTF-8", Charset.class));
+    }
+
+    @ConfigMapping(prefix = "service")
+    public interface SampleServiceConfig {
+        String host();
+        int port();
+    }
+
+    @AfterEach
+    void cleanup() {
+        ReloadableConfigRegistry.clear();
+    }
+
+    @Test
+    void testReloadLifecycleWithRegisteredMapping() throws IOException {
+        Path configFile = tempDir.resolve("application.properties");
+        Files.writeString(configFile, "service.host=localhost\nservice.port=8080\n");
+
+        var configSource = new ExternalConfigSource(configFile);
+        var reloadService = new ConfigReloadService();
+        reloadService.registerMapping(SampleServiceConfig.class, "service");
+
+        var result = reloadService.reload();
+        assertTrue(result.success());
+        assertEquals(0, result.updatedCount());
+
+        SampleServiceConfig snapshot = ReloadableConfigRegistry.get(SampleServiceConfig.class, "service");
+        assertNotNull(snapshot);
+        assertEquals("localhost", snapshot.host());
+        assertEquals(8080, snapshot.port());
+
+        // Update configuration on disk and trigger reload
+        Files.writeString(configFile, "service.host=remote-host\nservice.port=9090\n");
+        var result2 = reloadService.reload();
+        assertTrue(result2.success());
+        assertEquals(2, result2.updatedCount());
+
+        SampleServiceConfig updatedSnapshot = ReloadableConfigRegistry.get(SampleServiceConfig.class, "service");
+        assertNotNull(updatedSnapshot);
+        assertEquals("remote-host", updatedSnapshot.host());
+        assertEquals(9090, updatedSnapshot.port());
     }
 }

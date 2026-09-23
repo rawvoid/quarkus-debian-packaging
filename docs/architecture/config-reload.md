@@ -7,7 +7,7 @@ This document describes the architectural design and runtime mechanics of the dy
 The extension enables live, zero-downtime configuration updates for Quarkus applications packaged as Debian services (`systemd`). Configuration changes applied to `/etc/<app>/application.properties` can be reloaded on-demand via a UNIX domain socket command (`systemctl reload <app>` triggering `echo reload | nc -U /run/<app>/control.sock`).
 
 To maintain high throughput and low latency in production, configuration reloading is designed around three non-negotiable principles:
-1. **Zero Runtime Reflection**: Hot paths execute via direct interface dispatch without reflection, `VarHandle`, or proxy wrappers around individual getters.
+1. **Zero Runtime Reflection & Zero Hot-Path Allocation**: Hot paths execute via direct interface dispatch without reflection, `VarHandle`, heap allocations, or map lookups.
 2. **Atomic Snapshot Pointer Swapping**: The active configuration state transitions via an `AtomicReference` pointer swap only after the entire configuration payload is validated.
 3. **Transparent CDI Injection**: Application injection points (`@Inject MyConfig config`) seamlessly receive reloadable instances without altering business code or introducing custom annotations.
 
@@ -26,15 +26,14 @@ flowchart TD
     subgraph Runtime Initialization [Runtime Module]
         D --> E["ReloadableConfigCreator"]
         E --> F["Bootstrap Snapshot from SmallRyeConfig"]
-        F --> G["ReloadableConfigRegistry (AtomicReference)"]
-        E --> H["Instantiate &lt;Config&gt;$$ReloadProxy"]
+        F --> G["ReloadableConfigRegistry (ConfigMappingKey -> AtomicReference)"]
+        E --> H["Instantiate &lt;Config&gt;$$ReloadProxy (binds holder field)"]
     end
 
-    subgraph Application Hot Path [Zero Reflection]
+    subgraph Application Hot Path [Zero Reflection & Zero Allocation]
         I["Application Bean (@Inject MyConfig)"] --> H
-        H -->|"1. Registry.get(Class, prefix)"| G
-        G -->|"2. Read current snapshot"| J["Active Config Snapshot ($$CMImpl)"]
-        H -->|"3. Invoke getter on snapshot"| J
+        H -->|"1. this.holder.get() (single volatile read)"| J["Active Config Snapshot ($$CMImpl)"]
+        H -->|"2. Invoke getter on snapshot"| J
     end
 
     subgraph Reload Transaction [ConfigReloadService]
@@ -51,11 +50,18 @@ flowchart TD
 
 During Quarkus extension build time:
 - **`ConfigProxyGenerator`**: Inspects user `@ConfigMapping` interfaces and compiles a lightweight proxy `<Interface>$$ReloadProxy implements <Interface>` using Gizmo bytecode generation.
-- **Method Delegation**: Every interface getter method delegates directly to:
+- **Direct Holder Binding & Method Delegation**:
+  Each generated proxy class declares a private final field:
   ```java
-  ReloadableConfigRegistry.get(Interface.class, prefix).<method>();
+  private final AtomicReference<Object> holder;
   ```
-  Standard `Object` methods (`toString`, `hashCode`, `equals`) are similarly forwarded to the underlying active snapshot.
+  The proxy constructor binds this holder once upon creation via `ReloadableConfigRegistry.getHolder(Interface.class, prefix)`.
+  Every interface getter method delegates directly to:
+  ```java
+  ((Interface) this.holder.get()).<method>();
+  ```
+  Standard `Object` methods (`toString`, `hashCode`, `equals`) similarly forward through `this.holder.get()`.
+  This guarantees **zero heap allocations** and **zero `Map` lookups** on the configuration hot path.
 - **Arc Synthetic Alternative Bean**:
   `ConfigReloadProcessor` registers each proxy as a synthetic CDI bean targeting the config mapping interface:
   - Scope: `@Singleton`
@@ -64,9 +70,10 @@ During Quarkus extension build time:
   - Creator: `ReloadableConfigCreator`
   Arc CDI container automatically chooses this alternative over SmallRye's default non-alternative synthetic mapping bean, ensuring any `@Inject MyConfig` gets the reloadable proxy.
 
-### 2.2 Thread-Safe Registry (`runtime`)
+### 2.2 Thread-Safe Registry & Domain Model (`runtime`)
 
-- **`ReloadableConfigRegistry`**: Maintains a thread-safe registry keyed by `MappingKey(Class<?> mappingClass, String prefix)` mapped to an `AtomicReference<Object>`.
+- **`ConfigMappingKey`**: Immutable domain record `(Class<?> mappingClass, String prefix)` providing consistent mapping identification across the registry and reload service.
+- **`ReloadableConfigRegistry`**: Maintains a thread-safe registry keyed by `ConfigMappingKey` mapped to an `AtomicReference<Object>`.
 - **Atomic Pointer Swap**: Swapping configuration is a single atomic volatile pointer update (`AtomicReference.set(newSnapshot)`). Reading threads always observe either the entire old valid snapshot or the entire new valid snapshot, with zero lock contention.
 
 ### 2.3 Transactional Configuration Reload (`ConfigReloadService`)
@@ -87,5 +94,5 @@ When a reload request arrives via the control socket (`ControlSocketServer`), `C
 ## 3. Native Image & Performance Invariants
 
 - **100% GraalVM Native Image Safe**: Proxies are generated at build time; constructors are registered via `ReflectiveClassBuildItem`. No dynamic class loading, bytecode manipulation, or deep reflection occurs at runtime.
-- **Hot-Path Efficiency**: The invocation overhead is strictly equivalent to one `ConcurrentHashMap.get()` + one volatile reference read (`AtomicReference.get()`) followed by a standard monomorphic interface call.
+- **Hot-Path Efficiency**: The invocation overhead is strictly equivalent to one field dereference (`getfield`) + one volatile reference read (`holder.get()`) followed by a standard monomorphic interface call.
 - **Build Step Isolation**: Proxy registration is scheduled in `registerReloadableProxies` consuming `ConfigClassBuildItem` prior to Arc injection validation, preventing circular dependency cycles in the Quarkus build step execution graph.
