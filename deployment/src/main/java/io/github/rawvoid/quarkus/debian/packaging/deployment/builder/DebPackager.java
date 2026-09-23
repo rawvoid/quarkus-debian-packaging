@@ -129,7 +129,7 @@ public final class DebPackager {
         entries.add(DebEntry.bytes(
                 stripLeadingSlash(model.configFile()),
                 TemplateRenderer.renderBytes("application.properties", vars),
-                DebEntry.MODE_FILE,
+                DebEntry.MODE_CONFIG,
                 true));
 
         // jvm.options (JVM only, conffile)
@@ -137,7 +137,7 @@ public final class DebPackager {
             entries.add(DebEntry.bytes(
                     stripLeadingSlash(model.jvmOptionsFile()),
                     TemplateRenderer.renderBytes("jvm.options", vars),
-                    DebEntry.MODE_FILE,
+                    DebEntry.MODE_CONFIG,
                     true));
         }
 

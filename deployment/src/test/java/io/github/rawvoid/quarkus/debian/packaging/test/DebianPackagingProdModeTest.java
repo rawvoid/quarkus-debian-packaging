@@ -103,6 +103,17 @@ public class DebianPackagingProdModeTest {
         assertFalse(data.get("etc/default/prod-deb-app")
                 .contains("QUARKUS_CONFIG_LOCATIONS"));
         assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecStart=/usr/bin/prod-deb-app"));
+        assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
+        assertTrue(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
+        assertFalse(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("NoNewPrivileges"));
+
+        String postinst = control.get("postinst");
+        assertTrue(postinst.contains("CONFIG_FILE=\"/etc/prod-deb-app/application.properties\""));
+        assertTrue(postinst.contains("JVM_OPTIONS_FILE=\"/etc/prod-deb-app/jvm.options\""));
+        assertTrue(postinst.contains("chmod 0640 \"${CONFIG_FILE}\""));
+        assertTrue(postinst.contains("chmod 0640 \"${JVM_OPTIONS_FILE}\""));
+        assertTrue(postinst.contains("chown root:\"${SERVICE_GROUP}\" \"${CONFIG_FILE}\""));
+        assertTrue(postinst.contains("chown root:\"${SERVICE_GROUP}\" \"${JVM_OPTIONS_FILE}\""));
     }
 
     private static Path findDeb(Path buildDir) throws IOException {
