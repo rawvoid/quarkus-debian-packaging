@@ -59,6 +59,11 @@ Instructions for AI assistants working in this repository.
 
 ## 4. Git & Remote Actions
 
+- **Branching Strategy & PR Workflow**:
+  - **Integration Target**: `dev` is the primary integration branch for ongoing development; `main` is strictly reserved for stable production releases.
+  - **No Direct Commits to Main/Dev**: **NEVER** commit or push directly to `dev` or `main`. All work MUST be developed on dedicated, semantic topic branches following the pattern `<type>/<short-description>` (e.g., `feat/runtime-logging`, `fix/reload-converters`, `docs/architecture-guide`).
+  - **PR Submission**: When instructed to submit a Pull Request, push the topic branch to `origin` and open the PR targeting `dev` (`gh pr create --base dev`).
+  - **Clean Local Integration State**: Ensure local `dev` remains strictly synchronized with `origin/dev` without local divergence or untracked merge commits.
 - **Conventional Commits**: Git commit messages and PR titles MUST adhere to the Conventional Commits specification.
 - **Atomic Local Commits**: Commit locally as coherent, verified units of work (tests green when code changed). Avoid combining unrelated changes; do not force a commit after every exploratory substep.
 - **Selective Staging**: Stage and commit ONLY files modified or created for the current task. Do not include unrelated or pre-existing uncommitted changes present in the working tree.
