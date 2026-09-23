@@ -18,7 +18,7 @@ package io.github.rawvoid.quarkus.debian.packaging.runtime;
 
 import java.nio.file.Path;
 
-import io.github.rawvoid.quarkus.debian.packaging.DebianReloadRuntimeConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ConfigReloadService;
 import io.github.rawvoid.quarkus.debian.packaging.runtime.socket.ControlSocketServer;
 import io.quarkus.runtime.RuntimeValue;
@@ -35,9 +35,9 @@ public class ConfigReloadRecorder {
 
     private static final ConfigReloadService RELOAD_SERVICE = new ConfigReloadService();
 
-    private final RuntimeValue<DebianReloadRuntimeConfig> runtimeConfig;
+    private final RuntimeValue<ReloadConfig> runtimeConfig;
 
-    public ConfigReloadRecorder(RuntimeValue<DebianReloadRuntimeConfig> runtimeConfig) {
+    public ConfigReloadRecorder(RuntimeValue<ReloadConfig> runtimeConfig) {
         this.runtimeConfig = runtimeConfig;
     }
 
@@ -58,7 +58,7 @@ public class ConfigReloadRecorder {
     }
 
     public void startControlServer(ShutdownContext shutdownContext, String defaultSocketPathStr) {
-        DebianReloadRuntimeConfig config = runtimeConfig != null ? runtimeConfig.getValue() : null;
+        ReloadConfig config = runtimeConfig != null ? runtimeConfig.getValue() : null;
         if (config == null || !config.enabled()) {
             return;
         }

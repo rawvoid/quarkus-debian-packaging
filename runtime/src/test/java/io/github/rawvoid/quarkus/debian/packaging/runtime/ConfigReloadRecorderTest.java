@@ -29,7 +29,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import io.github.rawvoid.quarkus.debian.packaging.DebianReloadRuntimeConfig;
+import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.ShutdownContext;
 
@@ -105,8 +105,8 @@ class ConfigReloadRecorderTest {
         assertFalse(shutdownTasks.isEmpty());
     }
 
-    private static DebianReloadRuntimeConfig runtimeConfig(boolean enabled, String socketPath) {
-        return new DebianReloadRuntimeConfig() {
+    private static ReloadConfig runtimeConfig(boolean enabled, String socketPath) {
+        return new ReloadConfig() {
             @Override
             public boolean enabled() {
                 return enabled;

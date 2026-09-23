@@ -30,7 +30,7 @@ import io.smallrye.config.WithDefault;
  */
 @ConfigMapping(prefix = "quarkus.debian.reload")
 @ConfigRoot(phase = ConfigPhase.RUN_TIME)
-public interface DebianReloadRuntimeConfig {
+public interface ReloadConfig {
 
     /**
      * Whether to enable UNIX domain socket reload support at runtime.
