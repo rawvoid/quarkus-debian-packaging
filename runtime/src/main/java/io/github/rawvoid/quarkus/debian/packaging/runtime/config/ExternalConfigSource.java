@@ -46,20 +46,19 @@ public class ExternalConfigSource implements ConfigSource {
     public static final String DEFAULT_CONFIG_DIR = "/etc";
     public static final String DEFAULT_CONFIG_FILENAME = "application.properties";
 
-    private static volatile ExternalConfigSource instance;
-
     private final Path configFile;
+    private final int ordinal;
     private final AtomicReference<Map<String, String>> currentProperties;
 
-    public ExternalConfigSource(Path configFile) {
+    public ExternalConfigSource(Path configFile, int ordinal) {
         this.configFile = Objects.requireNonNull(configFile, "configFile");
+        this.ordinal = ordinal;
         Map<String, String> initialProps = loadFromFile(configFile);
         this.currentProperties = new AtomicReference<>(Collections.unmodifiableMap(initialProps));
-        instance = this;
     }
 
-    public static ExternalConfigSource getInstance() {
-        return instance;
+    public ExternalConfigSource(Path configFile) {
+        this(configFile, ORDINAL);
     }
 
     public Path getConfigFile() {
@@ -68,7 +67,7 @@ public class ExternalConfigSource implements ConfigSource {
 
     @Override
     public int getOrdinal() {
-        return ORDINAL;
+        return ordinal;
     }
 
     @Override
