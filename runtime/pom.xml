@@ -26,6 +26,7 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Required in unit test scope only: allows SmallRye Config to generate dynamic mappings for test interfaces without Quarkus build augmentation -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>
