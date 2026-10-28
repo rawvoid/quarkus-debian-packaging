@@ -24,13 +24,10 @@ import java.util.OptionalInt;
 
 import org.eclipse.microprofile.config.spi.ConfigSource;
 
-import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPaths;
-import io.quarkus.runtime.ApplicationConfig;
 import io.smallrye.config.ConfigSourceContext;
-import io.smallrye.config.ConfigSourceFactory.ConfigurableConfigSourceFactory;
-import io.smallrye.config.SmallRyeConfig;
-import io.smallrye.config.SmallRyeConfigBuilder;
+import io.smallrye.config.ConfigSourceFactory;
+import io.smallrye.config.ConfigValue;
 
 /**
  * Discovers and registers {@link ExternalConfigSource} and profile-specific companion sources
@@ -38,7 +35,7 @@ import io.smallrye.config.SmallRyeConfigBuilder;
  *
  * @author rawvoid
  */
-public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFactory<DebianPackagingConfig> {
+public class ExternalConfigSourceFactory implements ConfigSourceFactory {
 
     public static final String EXTERNAL_CONFIG_ENV = "QUARKUS_DEBIAN_EXTERNAL_CONFIG";
     public static final int BASE_ORDINAL = 275;
@@ -50,36 +47,27 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
 
     @Override
     public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context) {
-        if (!isArmed()) {
-            return Collections.emptyList();
-        }
-        return ConfigurableConfigSourceFactory.super.getConfigSources(context);
+        return getConfigSources(context, System.getenv(EXTERNAL_CONFIG_ENV));
     }
 
-    @Override
-    public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context, DebianPackagingConfig config) {
-        return getConfigSources(context, config, System.getenv(EXTERNAL_CONFIG_ENV));
-    }
-
-    Iterable<ConfigSource> getConfigSources(
-            ConfigSourceContext context,
-            DebianPackagingConfig config,
-            String armedEnv) {
-        if (!config.enabled() || !isArmed(armedEnv)) {
+    Iterable<ConfigSource> getConfigSources(ConfigSourceContext context, String armedEnv) {
+        if (!isArmed(armedEnv) || !isEnabled(context)) {
             return Collections.emptyList();
         }
 
-        String rawPackageName = config.name().filter(s -> !s.isBlank())
-                .orElseGet(() -> resolveApplicationName(context));
+        String rawPackageName = getOptionalValue(context, "quarkus.debian.name");
+        if (rawPackageName == null) {
+            rawPackageName = getOptionalValue(context, "quarkus.application.name");
+        }
 
-        if (rawPackageName == null && config.configFile().filter(s -> !s.isBlank()).isEmpty()) {
+        String configFile = getOptionalValue(context, "quarkus.debian.config-file");
+        String configDir = getOptionalValue(context, "quarkus.debian.config-dir");
+
+        if (rawPackageName == null && configFile == null) {
             return Collections.emptyList();
         }
 
-        String pathStr = DebianPaths.configFile(
-                rawPackageName,
-                config.configDir().orElse(null),
-                config.configFile().orElse(null));
+        String pathStr = DebianPaths.configFile(rawPackageName, configDir, configFile);
         Path mainConfigFile = Path.of(pathStr);
 
         List<String> profiles = safeGetProfiles(context);
@@ -105,8 +93,20 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
         return "true".equals(envVal);
     }
 
-    private static boolean isArmed() {
-        return isArmed(System.getenv(EXTERNAL_CONFIG_ENV));
+    private static boolean isEnabled(ConfigSourceContext context) {
+        ConfigValue val = context.getValue("quarkus.debian.enabled");
+        if (val == null || val.getValue() == null || val.getValue().isBlank()) {
+            return true;
+        }
+        return !"false".equalsIgnoreCase(val.getValue().trim());
+    }
+
+    private static String getOptionalValue(ConfigSourceContext context, String name) {
+        ConfigValue val = context.getValue(name);
+        if (val == null || val.getValue() == null || val.getValue().isBlank()) {
+            return null;
+        }
+        return val.getValue().trim();
     }
 
     static Path resolveProfilePath(Path mainConfigFile, String profile) {
@@ -118,31 +118,9 @@ public class ExternalConfigSourceFactory implements ConfigurableConfigSourceFact
         return mainConfigFile.resolveSibling(profileFileName);
     }
 
-    private static String resolveApplicationName(ConfigSourceContext context) {
-        try {
-            SmallRyeConfig config = new SmallRyeConfigBuilder()
-                    .withSources(new ConfigSourceContext.ConfigSourceContextConfigSource(context))
-                    .withSources(safeGetConfigSources(context))
-                    .withMapping(ApplicationConfig.class)
-                    .withValidateUnknown(false)
-                    .build();
-            return config.getConfigMapping(ApplicationConfig.class).name().orElse(null);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private static List<String> safeGetProfiles(ConfigSourceContext context) {
         try {
             return context.getProfiles();
-        } catch (UnsupportedOperationException e) {
-            return Collections.emptyList();
-        }
-    }
-
-    private static List<ConfigSource> safeGetConfigSources(ConfigSourceContext context) {
-        try {
-            return context.getConfigSources();
         } catch (UnsupportedOperationException e) {
             return Collections.emptyList();
         }
