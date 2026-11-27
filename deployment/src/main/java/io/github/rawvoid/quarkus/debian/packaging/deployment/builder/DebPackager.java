@@ -18,13 +18,11 @@ package io.github.rawvoid.quarkus.debian.packaging.deployment.builder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.jboss.logging.Logger;
@@ -96,25 +94,10 @@ public final class DebPackager {
                 DebEntry.MODE_EXEC,
                 false));
 
-        // Reload helper script (packaged only when configuration reload is enabled)
-        if (model.reloadEnabled()) {
-            entries.add(DebEntry.bytes(
-                    stripLeadingSlash(model.installDir() + "/reload"),
-                    TemplateRenderer.renderBytes("reload.py", vars),
-                    DebEntry.MODE_EXEC,
-                    false));
-        }
-
-        // systemd unit (omit ExecReload directive when reload is disabled)
-        String unitContent = TemplateRenderer.render("unit.service", vars);
-        if (!model.reloadEnabled()) {
-            unitContent = unitContent.lines()
-                    .filter(line -> !line.startsWith("ExecReload="))
-                    .collect(Collectors.joining("\n")) + "\n";
-        }
+        // systemd unit
         entries.add(DebEntry.bytes(
                 stripLeadingSlash(model.systemdUnitFile()),
-                unitContent.getBytes(StandardCharsets.UTF_8),
+                TemplateRenderer.renderBytes("unit.service", vars),
                 DebEntry.MODE_FILE,
                 false));
 

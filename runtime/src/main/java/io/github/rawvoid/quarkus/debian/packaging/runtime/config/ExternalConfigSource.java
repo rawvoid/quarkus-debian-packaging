@@ -22,39 +22,33 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.microprofile.config.spi.ConfigSource;
 
 /**
- * MicroProfile ConfigSource that bridges external properties from {@code /etc/${packageName}/application.properties}.
+ * Immutable MicroProfile ConfigSource loading external properties from {@code /etc/${packageName}/application.properties}.
  * <p>
- * Configured with Ordinal 275 (higher than internal {@code application.properties} at 250, but lower than environment
- * variables at 300).
+ * Ordinal 275 sits above packaged {@code application.properties} (250) and below environment variables (300).
  *
  * @author rawvoid
  */
-public class ExternalConfigSource implements ConfigSource {
+public final class ExternalConfigSource implements ConfigSource {
 
     public static final int ORDINAL = 275;
-    public static final String DEFAULT_CONFIG_DIR = "/etc";
-    public static final String DEFAULT_CONFIG_FILENAME = "application.properties";
 
     private final Path configFile;
     private final int ordinal;
-    private final AtomicReference<Map<String, String>> currentProperties;
+    private final Map<String, String> properties;
 
     public ExternalConfigSource(Path configFile, int ordinal) {
         this.configFile = Objects.requireNonNull(configFile, "configFile");
         this.ordinal = ordinal;
-        Map<String, String> initialProps = loadFromFile(configFile);
-        this.currentProperties = new AtomicReference<>(Collections.unmodifiableMap(initialProps));
+        this.properties = Map.copyOf(loadFromFile(configFile));
     }
 
     public ExternalConfigSource(Path configFile) {
@@ -77,48 +71,40 @@ public class ExternalConfigSource implements ConfigSource {
 
     @Override
     public Set<String> getPropertyNames() {
-        return currentProperties.get().keySet();
+        return properties.keySet();
     }
 
     @Override
     public String getValue(String propertyName) {
-        return currentProperties.get().get(propertyName);
+        return properties.get(propertyName);
     }
 
     @Override
     public Map<String, String> getProperties() {
-        return currentProperties.get();
+        return properties;
     }
 
     /**
-     * Atomically updates the active properties snapshot.
-     */
-    public void commit(Map<String, String> newProps) {
-        Objects.requireNonNull(newProps, "newProps");
-        currentProperties.set(Collections.unmodifiableMap(new HashMap<>(newProps)));
-    }
-
-    /**
-     * Loads properties from a file using UTF-8 encoding.
-     * Returns an empty map if the file does not exist.
+     * Loads UTF-8 properties from disk. Missing files produce an empty map so optional profile companion files
+     * remain non-fatal, while existing unreadable or non-regular files fail fast.
      */
     public static Map<String, String> loadFromFile(Path path) {
         if (path == null || !Files.exists(path)) {
-            return Collections.emptyMap();
+            return Map.of();
         }
         if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
             throw new UncheckedIOException("External configuration file is not a readable regular file: " + path,
                     new IOException("Cannot read regular file: " + path));
         }
-        Properties properties = new Properties();
+        Properties loaded = new Properties();
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            properties.load(reader);
+            loaded.load(reader);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read external configuration file: " + path, e);
         }
-        Map<String, String> map = new HashMap<>();
-        for (String name : properties.stringPropertyNames()) {
-            map.put(name, properties.getProperty(name));
+        Map<String, String> map = new HashMap<>(loaded.size());
+        for (String name : loaded.stringPropertyNames()) {
+            map.put(name, loaded.getProperty(name));
         }
         return map;
     }

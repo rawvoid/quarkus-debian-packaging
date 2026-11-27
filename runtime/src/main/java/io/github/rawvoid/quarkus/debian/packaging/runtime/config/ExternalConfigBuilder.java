@@ -16,17 +16,18 @@
 
 package io.github.rawvoid.quarkus.debian.packaging.runtime.config;
 
-import java.util.Objects;
+import io.quarkus.runtime.configuration.ConfigBuilder;
+import io.smallrye.config.SmallRyeConfigBuilder;
 
 /**
- * Immutable identifier for a configuration mapping combining its interface type and optional prefix.
+ * Registers {@link ExternalConfigSourceFactory} into Quarkus runtime configuration when Debian packaging is enabled.
  *
  * @author rawvoid
  */
-public record ConfigMappingKey(Class<?> mappingClass, String prefix) {
+public final class ExternalConfigBuilder implements ConfigBuilder {
 
-    public ConfigMappingKey {
-        Objects.requireNonNull(mappingClass, "mappingClass must not be null");
-        prefix = prefix != null ? prefix : "";
+    @Override
+    public SmallRyeConfigBuilder configBuilder(SmallRyeConfigBuilder builder) {
+        return builder.withSources(new ExternalConfigSourceFactory());
     }
 }

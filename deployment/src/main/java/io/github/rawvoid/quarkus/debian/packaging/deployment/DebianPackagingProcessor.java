@@ -21,14 +21,15 @@ import java.nio.file.Path;
 import org.jboss.logging.Logger;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.builder.DebPackager;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.DebianPackageModel;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.PackagePayload;
+import io.github.rawvoid.quarkus.debian.packaging.runtime.config.ExternalConfigBuilder;
 import io.quarkus.deployment.IsProduction;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.Produce;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
+import io.quarkus.deployment.builditem.RunTimeConfigBuilderBuildItem;
 import io.quarkus.deployment.pkg.PackageConfig;
 import io.quarkus.deployment.pkg.builditem.ArtifactResultBuildItem;
 import io.quarkus.deployment.pkg.builditem.JarBuildItem;
@@ -37,13 +38,18 @@ import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 import io.quarkus.deployment.pkg.steps.NativeBuild;
 
 /**
- * Registers the build steps that produce Debian packages.
+ * Registers the build steps that produce Debian packages and wire external runtime configuration.
  *
  * @author rawvoid
  */
 class DebianPackagingProcessor {
 
     private static final Logger LOG = Logger.getLogger(DebianPackagingProcessor.class);
+
+    @BuildStep(onlyIf = DebianEnabled.class)
+    RunTimeConfigBuilderBuildItem registerExternalConfigBuilder() {
+        return new RunTimeConfigBuilderBuildItem(ExternalConfigBuilder.class);
+    }
 
     /**
      * Produce {@link ArtifactResultBuildItem} only as a pseudo-target so this step always runs in production
@@ -54,34 +60,31 @@ class DebianPackagingProcessor {
     @Produce(ArtifactResultBuildItem.class)
     void packageJvmDeb(
             DebianPackagingConfig config,
-            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem applicationInfo,
             OutputTargetBuildItem outputTarget,
             PackageConfig packageConfig,
             JarBuildItem jar) {
         PackagePayload payload = PayloadResolver.fromJar(jar, packageConfig);
-        buildDeb(config, reloadConfig, applicationInfo, outputTarget, payload);
+        buildDeb(config, applicationInfo, outputTarget, payload);
     }
 
     @BuildStep(onlyIf = { IsProduction.class, NativeBuild.class, DebianEnabled.class })
     @Produce(ArtifactResultBuildItem.class)
     void packageNativeDeb(
             DebianPackagingConfig config,
-            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem applicationInfo,
             OutputTargetBuildItem outputTarget,
             NativeImageBuildItem nativeImage) {
         PackagePayload payload = PayloadResolver.fromNative(nativeImage);
-        buildDeb(config, reloadConfig, applicationInfo, outputTarget, payload);
+        buildDeb(config, applicationInfo, outputTarget, payload);
     }
 
     private static void buildDeb(
             DebianPackagingConfig config,
-            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem applicationInfo,
             OutputTargetBuildItem outputTarget,
             PackagePayload payload) {
-        DebianPackageModel model = DebianPackageModel.resolve(config, reloadConfig, applicationInfo, outputTarget, payload);
+        DebianPackageModel model = DebianPackageModel.resolve(config, applicationInfo, outputTarget, payload);
         Path deb = DebPackager.packageDeb(model);
         LOG.debugf(
                 "Debian package model: name=%s version=%s arch=%s payload=%s path=%s",

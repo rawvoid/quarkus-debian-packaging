@@ -68,16 +68,17 @@ class TemplateRendererTest {
         assertTrue(launcher.contains("INSTALL_DIR=\"/usr/share/demo\""));
         assertTrue(launcher.contains("SYSTEMD_SERVICE_NAME=\"demo.service\""));
         assertTrue(launcher.contains("DEFAULTS_FILE=\"/etc/default/demo\""));
-        assertTrue(launcher.contains("--reload)"));
-        assertTrue(launcher.contains("exec \"${INSTALL_DIR}/reload\" \"$@\""));
+        assertFalse(launcher.contains("--reload"));
         assertTrue(launcher.contains("--status|status)"));
         assertTrue(launcher.contains("exec systemctl status \"${SYSTEMD_SERVICE_NAME}\" \"$@\""));
         assertTrue(launcher.contains("--version|-v)"));
         assertTrue(launcher.contains("echo \"demo 1.0.0 (amd64)\""));
         assertTrue(launcher.contains("--help|-h)"));
         assertTrue(launcher.contains("Usage: demo [OPTIONS|COMMAND]"));
-        assertTrue(launcher.contains("sudo systemctl {start|stop|restart|status|reload} demo.service"));
+        assertTrue(launcher.contains("sudo systemctl {start|stop|restart|status} demo.service"));
         assertTrue(launcher.contains("export \"${key}=${val}\""));
+        assertTrue(launcher.contains("export QUARKUS_DEBIAN_EXTERNAL_CONFIG=true"));
+        assertTrue(launcher.contains("export QUARKUS_DEBIAN_CONFIG_FILE=\"${QUARKUS_DEBIAN_CONFIG_FILE:-/etc/demo/application.properties}\""));
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\" \"$@\""));
     }
 
@@ -98,17 +99,6 @@ class TemplateRendererTest {
                 "quarkusRunner", "/usr/share/demo/demo-runner"));
         assertTrue(startup.contains("QUARKUS_RUNNER=\"/usr/share/demo/demo-runner\""));
         assertTrue(startup.contains("exec \"${QUARKUS_RUNNER}\" \"$@\""));
-    }
-
-    @Test
-    void rendersReloadScript() {
-        String reload = TemplateRenderer.render("reload.py", Map.of(
-                "packageName", "demo",
-                "socketPath", "/run/demo/control.sock",
-                "systemdServiceName", "demo.service"));
-        assertTrue(reload.contains("/run/demo/control.sock"));
-        assertTrue(reload.contains("demo.service"));
-        assertTrue(reload.contains("import socket"));
     }
 
     @Test
@@ -144,9 +134,9 @@ class TemplateRendererTest {
                 "executableFile", "/usr/bin/demo",
                 "packageName", "demo"));
         assertTrue(service.contains("ExecStart=/usr/bin/demo"));
-        assertTrue(service.contains("ExecReload=/usr/bin/demo --reload"));
-        assertTrue(service.contains("RuntimeDirectory=demo"));
-        assertTrue(service.contains("RuntimeDirectoryMode=0750"));
+        assertFalse(service.contains("ExecReload="));
+        assertFalse(service.contains("RuntimeDirectory="));
+        assertFalse(service.contains("RuntimeDirectoryMode="));
         assertTrue(service.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
         assertTrue(service.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
         assertTrue(service.contains("NoNewPrivileges=true"));
@@ -262,54 +252,6 @@ class TemplateRendererTest {
     }
 
     @Test
-    void launcherHandlesReloadFastPathWithoutEvaluatingDefaults(@TempDir Path tempDir) throws Exception {
-        Path defaultsFile = tempDir.resolve("defaults");
-        Files.writeString(defaultsFile, "THIS IS COMPLETELY CORRUPTED CONTENT NOT KEY VAL");
-
-        Path reloadScript = tempDir.resolve("reload");
-        Files.writeString(reloadScript, """
-                #!/bin/sh
-                echo "RELOAD_INVOKED"
-                """);
-        setPosixExecutable(reloadScript);
-
-        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
-
-        Path launcherScript = tempDir.resolve("launcher.sh");
-        Files.writeString(launcherScript, scriptContent);
-        setPosixExecutable(launcherScript);
-
-        var pb = new ProcessBuilder("sh", launcherScript.toString(), "--reload");
-        var process = pb.start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        int exitCode = process.waitFor();
-
-        assertEquals(0, exitCode);
-        assertTrue(output.contains("RELOAD_INVOKED"));
-    }
-
-    @Test
-    void launcherReportsDisabledReloadWhenHelperScriptMissing(@TempDir Path tempDir) throws Exception {
-        Path defaultsFile = tempDir.resolve("defaults");
-        Files.writeString(defaultsFile, "KEY=val\n");
-
-        String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, defaultsFile));
-
-        Path launcherScript = tempDir.resolve("launcher.sh");
-        Files.writeString(launcherScript, scriptContent);
-        setPosixExecutable(launcherScript);
-
-        var pb = new ProcessBuilder("sh", launcherScript.toString(), "--reload");
-        var process = pb.start();
-        String errorOutput = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-        int exitCode = process.waitFor();
-
-        assertEquals(1, exitCode);
-        assertTrue(errorOutput.contains("Configuration hot-reload is disabled for this build"));
-        assertTrue(errorOutput.contains("quarkus.debian.reload.enabled=true"));
-    }
-
-    @Test
     void launcherHandlesVersionFastPath(@TempDir Path tempDir) throws Exception {
         String scriptContent = TemplateRenderer.render("launcher.sh", launcherVars("demo", tempDir, tempDir.resolve("defaults")));
         Path launcherScript = tempDir.resolve("launcher.sh");
@@ -345,9 +287,9 @@ class TemplateRendererTest {
 
         assertEquals(0, exitCode);
         assertTrue(output.contains("Usage: demo [OPTIONS|COMMAND]"));
-        assertTrue(output.contains("--reload"));
+        assertFalse(output.contains("--reload"));
         assertTrue(output.contains("--status, status"));
-        assertTrue(output.contains("sudo systemctl {start|stop|restart|status|reload} demo.service"));
+        assertTrue(output.contains("sudo systemctl {start|stop|restart|status} demo.service"));
 
         var pbShort = new ProcessBuilder("sh", launcherScript.toString(), "-h");
         var processShort = pbShort.start();

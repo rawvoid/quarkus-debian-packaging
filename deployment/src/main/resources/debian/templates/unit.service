@@ -10,9 +10,6 @@ Group=${serviceGroup}
 
 WorkingDirectory=-${installDir}
 ExecStart=${executableFile}
-ExecReload=${executableFile} --reload
-RuntimeDirectory=${packageName}
-RuntimeDirectoryMode=0750
 SuccessExitStatus=143
 Restart=on-failure
 RestartSec=5

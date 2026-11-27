@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.DebianPackageModel;
 import io.github.rawvoid.quarkus.debian.packaging.deployment.model.PackagePayload;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
@@ -74,6 +73,7 @@ class DebPackagerTest {
 
         String unit = new String(data.get("usr/lib/systemd/system/uber-demo.service").content(), StandardCharsets.UTF_8);
         assertFalse(unit.contains("ExecReload="));
+        assertFalse(unit.contains("RuntimeDirectory="));
         assertTrue(unit.contains("NoNewPrivileges=true"));
         assertTrue(unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
         assertTrue(unit.contains("CapabilityBoundingSet=CAP_NET_BIND_SERVICE"));
@@ -144,30 +144,10 @@ class DebPackagerTest {
         assertTrue(control.get("prerm").contains("hsperfdata_jvm-demo"));
     }
 
-    @Test
-    void packagesReloadHelperAndExecReloadWhenReloadEnabled() throws Exception {
-        Path runner = tempDir.resolve("reload-runner.jar");
-        Files.writeString(runner, "reload-content");
-
-        Path deb = DebPackager.packageDeb(model("reload-demo", PackagePayload.uberJar(runner), Optional.empty(), true));
-        Map<String, TarMember> data = readDataMembers(deb);
-
-        assertTrue(data.containsKey("usr/share/reload-demo/reload"));
-        assertEquals(DebEntry.MODE_EXEC, data.get("usr/share/reload-demo/reload").mode() & 0777);
-
-        String unit = new String(data.get("usr/lib/systemd/system/reload-demo.service").content(), StandardCharsets.UTF_8);
-        assertTrue(unit.contains("ExecReload=/usr/bin/reload-demo --reload"));
-    }
-
-    private DebianPackageModel model(String name, PackagePayload payload, Optional<String> architecture) {
-        return model(name, payload, architecture, false);
-    }
-
     private DebianPackageModel model(
             String name,
             PackagePayload payload,
-            Optional<String> architecture,
-            boolean reloadEnabled) {
+            Optional<String> architecture) {
         DebianPackagingConfig config = new DebianPackagingConfig() {
             @Override
             public boolean enabled() {
@@ -272,24 +252,9 @@ class DebPackagerTest {
 
         return DebianPackageModel.resolve(
                 config,
-                reloadConfig(reloadEnabled),
                 new ApplicationInfoBuildItem(Optional.of(name), Optional.of("1.0.0")),
                 new OutputTargetBuildItem(tempDir, name, name, false, new Properties(), Optional.empty()),
                 payload);
-    }
-
-    private static ReloadConfig reloadConfig(boolean enabled) {
-        return new ReloadConfig() {
-            @Override
-            public boolean enabled() {
-                return enabled;
-            }
-
-            @Override
-            public Optional<String> socketPath() {
-                return Optional.empty();
-            }
-        };
     }
 
     private static Map<String, TarMember> readDataMembers(Path deb) throws Exception {
