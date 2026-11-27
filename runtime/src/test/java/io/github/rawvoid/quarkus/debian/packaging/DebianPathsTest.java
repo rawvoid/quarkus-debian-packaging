@@ -91,12 +91,4 @@ class DebianPathsTest {
         assertEquals("/opt/my-app/application.properties", DebianPaths.configFile("my-app", "/opt/my-app", null));
         assertEquals("/opt/custom/conf.props", DebianPaths.configFile("my-app", "/opt/my-app", "/opt/custom/conf.props"));
     }
-
-    @Test
-    void resolvesSocketPath() {
-        assertEquals("/run/my-app/control.sock", DebianPaths.socketPath("my-app", null));
-        assertEquals("/var/run/custom.sock", DebianPaths.socketPath("my-app", "/var/run/custom.sock"));
-        assertEquals("/var/run/custom.sock", DebianPaths.socketPath("my-app", "\\var\\run\\custom.sock"));
-        assertEquals("/var/run/custom.sock", DebianPaths.socketPath("my-app", "/var/run/custom.sock/"));
-    }
 }

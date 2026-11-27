@@ -17,7 +17,6 @@
 package io.github.rawvoid.quarkus.debian.packaging.deployment.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +32,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
-import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 
@@ -149,102 +147,26 @@ class DebianPackageModelTest {
     }
 
     @Test
-    void resolvesReloadEnabledFlag() {
-        DebianPackageModel disabled = DebianPackageModel.resolve(
-                configWithName("app"),
-                reloadConfig(false),
-                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
-                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
-                payload());
-        assertFalse(disabled.reloadEnabled());
-
-        DebianPackageModel enabled = DebianPackageModel.resolve(
-                configWithName("app"),
-                reloadConfig(true),
-                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
-                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
-                payload());
-        assertTrue(enabled.reloadEnabled());
-    }
-
-    @Test
-    void resolvesDefaultAndCustomSocketPath() {
-        DebianPackageModel modelDefault = DebianPackageModel.resolve(
-                configWithName("my-app"),
-                reloadConfig(true),
-                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
-                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
-                payload());
-        assertEquals("/run/my-app/control.sock", modelDefault.socketPath());
-        assertEquals("/run/my-app/control.sock", modelDefault.templateVariables().get("socketPath"));
-
-        ReloadConfig customSocketConfig = new ReloadConfig() {
-            @Override
-            public boolean enabled() {
-                return true;
-            }
-
-            @Override
-            public Optional<String> socketPath() {
-                return Optional.of("/var/run/custom.sock");
-            }
-        };
-        DebianPackageModel modelCustom = DebianPackageModel.resolve(
-                configWithName("my-app"),
-                customSocketConfig,
-                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
-                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
-                payload());
-        assertEquals("/var/run/custom.sock", modelCustom.socketPath());
-        assertEquals("/var/run/custom.sock", modelCustom.templateVariables().get("socketPath"));
-
-        ReloadConfig slashSocketConfig = new ReloadConfig() {
-            @Override
-            public boolean enabled() {
-                return true;
-            }
-
-            @Override
-            public Optional<String> socketPath() {
-                return Optional.of("/var/run/custom.sock/");
-            }
-        };
-        DebianPackageModel modelSlash = DebianPackageModel.resolve(
-                configWithName("my-app"),
-                slashSocketConfig,
-                new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
-                new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
-                payload());
-        assertEquals("/var/run/custom.sock", modelSlash.socketPath());
-    }
-
-    @Test
-    void resolvesDynamicDependsForJvmAndNativeWithAndWithoutReload() {
+    void resolvesDynamicDependsForJvmAndNative() {
         PackagePayload jvmPayload = PackagePayload.uberJar(Path.of("app-runner.jar"));
         PackagePayload nativePayload = PackagePayload.nativeImage(Path.of("app-runner"));
 
         assertEquals(
                 "systemd, default-jre-headless | java-runtime-headless",
-                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(false), jvmPayload));
-        assertEquals(
-                "systemd, default-jre-headless | java-runtime-headless, python3",
-                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(true), jvmPayload));
+                DebianPackageModel.resolveDepends(configWithName("app"), jvmPayload));
         assertEquals(
                 "systemd",
-                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(false), nativePayload));
-        assertEquals(
-                "systemd, python3",
-                DebianPackageModel.resolveDepends(configWithName("app"), reloadConfig(true), nativePayload));
+                DebianPackageModel.resolveDepends(configWithName("app"), nativePayload));
     }
 
     @Test
     void resolvesDynamicDependsWithCustomAndDeduplication() {
         PackagePayload jvmPayload = PackagePayload.uberJar(Path.of("app-runner.jar"));
-        DebianPackagingConfig config = configWithDepends("app", "curl, python3, , libssl3, systemd");
+        DebianPackagingConfig config = configWithDepends("app", "curl, libssl3, , systemd");
 
         assertEquals(
-                "systemd, default-jre-headless | java-runtime-headless, curl, python3, libssl3",
-                DebianPackageModel.resolveDepends(config, reloadConfig(false), jvmPayload));
+                "systemd, default-jre-headless | java-runtime-headless, curl, libssl3",
+                DebianPackageModel.resolveDepends(config, jvmPayload));
     }
 
     @Test
@@ -335,7 +257,6 @@ class DebianPackageModelTest {
     private DebianPackageModel resolve(DebianPackagingConfig config, PackagePayload payload) {
         return DebianPackageModel.resolve(
                 config,
-                reloadConfig(false),
                 new ApplicationInfoBuildItem(Optional.of("fallback"), Optional.of("1.0.0")),
                 new OutputTargetBuildItem(tempDir, "app", "app", false, new Properties(), Optional.empty()),
                 payload);
@@ -477,20 +398,6 @@ class DebianPackageModelTest {
 
             @Override
             public Optional<String> outputName() {
-                return Optional.empty();
-            }
-        };
-    }
-
-    private static ReloadConfig reloadConfig(boolean enabled) {
-        return new ReloadConfig() {
-            @Override
-            public boolean enabled() {
-                return enabled;
-            }
-
-            @Override
-            public Optional<String> socketPath() {
                 return Optional.empty();
             }
         };

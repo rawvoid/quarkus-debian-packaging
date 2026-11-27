@@ -5,15 +5,6 @@ INSTALL_DIR="${installDir}"
 SYSTEMD_SERVICE_NAME="${systemdServiceName}"
 
 case "${1:-}" in
-    --reload)
-        shift
-        if [ ! -x "${INSTALL_DIR}/reload" ]; then
-            echo "Error: Configuration hot-reload is disabled for this build (helper script not found: ${INSTALL_DIR}/reload)." >&2
-            echo "Hint: Rebuild the package with -Dquarkus.debian.reload.enabled=true to enable it." >&2
-            exit 1
-        fi
-        exec "${INSTALL_DIR}/reload" "$@"
-        ;;
     --status|status)
         shift
         if ! command -v systemctl >/dev/null 2>&1; then
@@ -31,14 +22,13 @@ case "${1:-}" in
 Usage: ${packageName} [OPTIONS|COMMAND]
 
 Commands / Options:
-    --reload         Hot-reload configuration via UNIX domain socket (requires quarkus.debian.reload.enabled=true)
     --status, status Query systemd service status
     --version, -v    Print package version and architecture
     --help, -h       Print this help message
 
 Running without arguments starts the application in the foreground.
 To manage the background service, use systemd:
-    sudo systemctl {start|stop|restart|status|reload} ${systemdServiceName}
+    sudo systemctl {start|stop|restart|status} ${systemdServiceName}
 
 Configuration:
     Config File:     ${configFile}
@@ -74,6 +64,7 @@ if [ -r "${DEFAULTS_FILE}" ]; then
 fi
 
 export QUARKUS_DEBIAN_EXTERNAL_CONFIG=true
+export QUARKUS_DEBIAN_CONFIG_FILE="${QUARKUS_DEBIAN_CONFIG_FILE:-${configFile}}"
 
 if [ ! -x "${INSTALL_DIR}/startup" ]; then
     echo "Error: Startup script not found or not executable: ${INSTALL_DIR}/startup" >&2

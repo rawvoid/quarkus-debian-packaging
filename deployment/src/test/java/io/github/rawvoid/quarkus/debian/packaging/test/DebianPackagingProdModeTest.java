@@ -86,12 +86,17 @@ public class DebianPackagingProdModeTest {
         assertTrue(data.containsKey("usr/share/prod-deb-app/startup"));
         assertTrue(data.containsKey("usr/bin/prod-deb-app"));
         assertTrue(data.containsKey("usr/lib/systemd/system/prod-deb-app.service"));
-        assertFalse(data.get("usr/lib/systemd/system/prod-deb-app.service").contains("ExecReload="));
+        String unit = data.get("usr/lib/systemd/system/prod-deb-app.service");
+        assertFalse(unit.contains("ExecReload="));
+        assertFalse(unit.contains("RuntimeDirectory="));
         assertTrue(data.containsKey("etc/default/prod-deb-app"));
         String launcher = data.get("usr/bin/prod-deb-app");
+        assertTrue(launcher.contains("export QUARKUS_DEBIAN_EXTERNAL_CONFIG=true"));
+        assertTrue(launcher.contains("export QUARKUS_DEBIAN_CONFIG_FILE=\"${QUARKUS_DEBIAN_CONFIG_FILE:-/etc/prod-deb-app/application.properties}\""));
         assertTrue(launcher.contains("exec \"${INSTALL_DIR}/startup\""));
         assertFalse(launcher.contains("${installDir}"), "Launcher template variables must be resolved");
         assertFalse(launcher.contains("${defaultsFile}"), "Launcher template variables must be resolved");
+        assertFalse(launcher.contains("${configFile}"), "Launcher template variables must be resolved");
 
         String startup = data.get("usr/share/prod-deb-app/startup");
         assertTrue(startup.contains("exec \"${JAVA}\" -jar"));

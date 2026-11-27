@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackageNames;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPackagingConfig;
 import io.github.rawvoid.quarkus.debian.packaging.DebianPaths;
-import io.github.rawvoid.quarkus.debian.packaging.ReloadConfig;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
 import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 
@@ -62,8 +61,6 @@ public record DebianPackageModel(
         String serviceGroup,
         String systemdServiceName,
         String systemdUnitFile,
-        String socketPath,
-        boolean reloadEnabled,
         Path outputFile,
         PackagePayload payload) {
 
@@ -93,12 +90,10 @@ public record DebianPackageModel(
 
     public static DebianPackageModel resolve(
             DebianPackagingConfig config,
-            ReloadConfig reloadConfig,
             ApplicationInfoBuildItem appInfo,
             OutputTargetBuildItem outputTarget,
             PackagePayload payload) {
         Objects.requireNonNull(config, "config");
-        Objects.requireNonNull(reloadConfig, "reloadConfig");
         Objects.requireNonNull(appInfo, "appInfo");
         Objects.requireNonNull(outputTarget, "outputTarget");
         Objects.requireNonNull(payload, "payload");
@@ -117,7 +112,7 @@ public record DebianPackageModel(
 
         String description = config.description().orElse(packageName + " service");
         String architecture = config.architecture().orElseGet(() -> payload.isNative() ? detectNativeArchitecture(payload) : "all");
-        String depends = resolveDepends(config, reloadConfig, payload);
+        String depends = resolveDepends(config, payload);
 
         String installDir = normalizeAbsolutePath(
                 config.installDir().orElse(DEFAULT_INSTALL_PREFIX + packageName));
@@ -147,10 +142,6 @@ public record DebianPackageModel(
         String jvmOptionsFile = configDir + "/" + DEFAULT_JVM_OPTIONS_FILENAME;
         String quarkusRunner = installDir + "/" + payload.mainRelativePath();
 
-        String socketPath = DebianPaths.socketPath(
-                packageName,
-                reloadConfig.socketPath().orElse(null));
-
         String outputName = config.outputName().orElse(packageName + "_" + version + "_" + architecture + DEB_EXTENSION);
         Path outputFile = outputTarget.getOutputDirectory().resolve(outputName);
 
@@ -176,8 +167,6 @@ public record DebianPackageModel(
                 serviceGroup,
                 systemdServiceName,
                 systemdUnitFile,
-                socketPath,
-                reloadConfig.enabled(),
                 outputFile,
                 payload);
     }
@@ -207,7 +196,6 @@ public record DebianPackageModel(
         vars.put("serviceGroup", serviceGroup);
         vars.put("systemdServiceName", systemdServiceName);
         vars.put("systemdUnitFile", systemdUnitFile);
-        vars.put("socketPath", socketPath);
         return vars;
     }
 
@@ -268,15 +256,11 @@ public record DebianPackageModel(
 
     static String resolveDepends(
             DebianPackagingConfig config,
-            ReloadConfig reloadConfig,
             PackagePayload payload) {
         Set<String> deps = new LinkedHashSet<>();
         deps.add("systemd");
         if (!payload.isNative()) {
             deps.add("default-jre-headless | java-runtime-headless");
-        }
-        if (reloadConfig.enabled()) {
-            deps.add("python3");
         }
         config.depends().ifPresent(custom -> {
             for (String dep : custom.split(",")) {

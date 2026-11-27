@@ -120,14 +120,4 @@ public final class DebianPaths {
         }
         return "/etc/" + DebianPackageNames.sanitize(rawName) + "/application.properties";
     }
-
-    /**
-     * Resolves and normalizes the control socket path.
-     */
-    public static String socketPath(String rawName, String socketPath) {
-        if (socketPath != null && !socketPath.isBlank()) {
-            return normalize(socketPath, 2);
-        }
-        return "/run/" + DebianPackageNames.sanitize(rawName) + "/control.sock";
-    }
 }

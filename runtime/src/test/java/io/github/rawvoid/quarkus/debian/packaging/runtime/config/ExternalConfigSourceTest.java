@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.microprofile.config.spi.ConfigSource;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -42,11 +41,6 @@ class ExternalConfigSourceTest {
 
     @TempDir
     Path tempDir;
-
-    @AfterEach
-    void cleanup() {
-        ExternalConfigGroup.clear();
-    }
 
     @Test
     void testOrdinalAndDefaults() {
@@ -64,26 +58,20 @@ class ExternalConfigSourceTest {
         Path configFile = tempDir.resolve("application.properties");
         ExternalConfigSource source = new ExternalConfigSource(configFile);
 
-        // Ordinal 275 sits above internal application.properties (250)
-        // and below environment variables (300)
         assertEquals(275, source.getOrdinal());
         assertTrue(source.getOrdinal() > 250, "ExternalConfigSource must override classpath application.properties");
         assertTrue(source.getOrdinal() < 300, "ExternalConfigSource must yield to environment variables");
     }
 
     @Test
-    void testLoadAndCommit() throws IOException {
+    void testLoadsPropertiesAsImmutableSnapshot() throws IOException {
         Path configFile = tempDir.resolve("application.properties");
         Files.writeString(configFile, "app.timeout=30s\napp.greeting=Hello World\n");
 
         ExternalConfigSource source = new ExternalConfigSource(configFile);
         assertEquals("30s", source.getValue("app.timeout"));
         assertEquals("Hello World", source.getValue("app.greeting"));
-
-        // Test commit update
-        source.commit(Map.of("app.timeout", "60s", "app.greeting", "Updated"));
-        assertEquals("60s", source.getValue("app.timeout"));
-        assertEquals("Updated", source.getValue("app.greeting"));
+        assertThrows(UnsupportedOperationException.class, () -> source.getProperties().put("k", "v"));
     }
 
     @Test
@@ -101,93 +89,76 @@ class ExternalConfigSourceTest {
     }
 
     @Test
-    void testFactoryRespectsDisabledSwitch() {
-        var factory = new ExternalConfigSourceFactory();
-
-        var disabledContext = createContext(Map.of("quarkus.debian.enabled", "false"));
-        assertFalse(factory.getConfigSources(disabledContext, "true").iterator().hasNext());
-    }
-
-    @Test
     void testFactoryUnarmedReturnsEmptyListInAllModes() {
         var factory = new ExternalConfigSourceFactory();
-
-        // 1. Armed env null
         var context = createContext(Map.of(
                 "quarkus.debian.name", "my-app",
                 "quarkus.debian.config-file", "/tmp/dev.properties"));
-        assertFalse(factory.getConfigSources(context, null).iterator().hasNext());
 
-        // 2. Armed env "false"
-        assertFalse(factory.getConfigSources(context, "false").iterator().hasNext());
-
-        // 3. Armed env empty
-        assertFalse(factory.getConfigSources(context, "").iterator().hasNext());
-
-        // 4. No-arg call in unarmed default environment
+        assertFalse(factory.getConfigSources(context, null, "/etc/my-app/application.properties").iterator().hasNext());
+        assertFalse(factory.getConfigSources(context, "false", "/etc/my-app/application.properties").iterator().hasNext());
+        assertFalse(factory.getConfigSources(context, "", "/etc/my-app/application.properties").iterator().hasNext());
         assertFalse(factory.getConfigSources(context).iterator().hasNext());
     }
 
     @Test
-    void testFactoryResolvesConfigFilePathWhenArmed() {
+    void testFactoryPrefersConfigFileEnvironmentVariableWhenArmed() {
         var factory = new ExternalConfigSourceFactory();
+        var context = createContext(Map.of("quarkus.application.name", "fallback-app"));
 
-        // 1. Explicit debian package name
-        var nameContext = createContext(Map.of("quarkus.debian.name", "my-app"));
-        var sources = factory.getConfigSources(nameContext, "true").iterator();
+        var sources = factory.getConfigSources(context, "true", "/opt/custom/app.properties").iterator();
         assertTrue(sources.hasNext());
         var source = (ExternalConfigSource) sources.next();
-        assertEquals(Path.of("/etc/my-app/application.properties"), source.getConfigFile());
+        assertEquals(Path.of("/opt/custom/app.properties"), source.getConfigFile());
 
-        // 2. Fallback to quarkus.application.name
-        var fallbackContext = createContext(Map.of("quarkus.application.name", "my-fallback-app"));
-        sources = factory.getConfigSources(fallbackContext, "true").iterator();
+        assertThrows(IllegalArgumentException.class,
+                () -> factory.getConfigSources(context, "true", "/etc/../passwd"));
+    }
+
+    @Test
+    void testFactoryFallsBackToContextPropertiesWhenConfigFileEnvUnset() {
+        var factory = new ExternalConfigSourceFactory();
+
+        var nameContext = createContext(Map.of("quarkus.debian.name", "my-app"));
+        var sources = factory.getConfigSources(nameContext, "true", null).iterator();
         assertTrue(sources.hasNext());
-        source = (ExternalConfigSource) sources.next();
-        assertEquals(Path.of("/etc/my-fallback-app/application.properties"), source.getConfigFile());
+        assertEquals(Path.of("/etc/my-app/application.properties"), ((ExternalConfigSource) sources.next()).getConfigFile());
 
-        // 2b. Fallback to quarkus.application.name with underscores and uppercase (sanitized)
-        var unsanitizedContext = createContext(Map.of("quarkus.application.name", "My_Custom_App"));
-        sources = factory.getConfigSources(unsanitizedContext, "true").iterator();
+        var fallbackContext = createContext(Map.of("quarkus.application.name", "My_Custom_App"));
+        sources = factory.getConfigSources(fallbackContext, "true", null).iterator();
         assertTrue(sources.hasNext());
-        source = (ExternalConfigSource) sources.next();
-        assertEquals(Path.of("/etc/my-custom-app/application.properties"), source.getConfigFile());
+        assertEquals(Path.of("/etc/my-custom-app/application.properties"), ((ExternalConfigSource) sources.next()).getConfigFile());
 
-        // 3. Custom config file override
         var customFileContext = createContext(Map.of(
                 "quarkus.debian.name", "my-app",
                 "quarkus.debian.config-file", "/opt/custom/config.properties"));
-        sources = factory.getConfigSources(customFileContext, "true").iterator();
+        sources = factory.getConfigSources(customFileContext, "true", null).iterator();
         assertTrue(sources.hasNext());
-        source = (ExternalConfigSource) sources.next();
-        assertEquals(Path.of("/opt/custom/config.properties"), source.getConfigFile());
+        assertEquals(Path.of("/opt/custom/config.properties"), ((ExternalConfigSource) sources.next()).getConfigFile());
 
-        // 4. Custom config directory
         var customDirContext = createContext(Map.of(
                 "quarkus.debian.name", "my-app",
                 "quarkus.debian.config-dir", "/var/etc/my-app"));
-        sources = factory.getConfigSources(customDirContext, "true").iterator();
+        sources = factory.getConfigSources(customDirContext, "true", null).iterator();
         assertTrue(sources.hasNext());
-        source = (ExternalConfigSource) sources.next();
-        assertEquals(Path.of("/var/etc/my-app/application.properties"), source.getConfigFile());
+        assertEquals(Path.of("/var/etc/my-app/application.properties"), ((ExternalConfigSource) sources.next()).getConfigFile());
 
-        // 5. Missing package name and app name
         var emptyContext = createContext(Map.of());
-        assertFalse(factory.getConfigSources(emptyContext, "true").iterator().hasNext());
+        assertFalse(factory.getConfigSources(emptyContext, "true", null).iterator().hasNext());
     }
 
     @Test
     void testProfileCompanionSourcesAndOrdinals() {
         var factory = new ExternalConfigSourceFactory();
         var context = createContextWithProfiles(
-                Map.of("quarkus.debian.name", "my-app"),
+                Map.of(),
                 List.of("prod", "staging"));
 
-        List<ConfigSource> sources = (List<ConfigSource>) factory.getConfigSources(context, "true");
+        List<ConfigSource> sources = (List<ConfigSource>) factory.getConfigSources(
+                context, "true", "/etc/my-app/application.properties");
 
         assertEquals(3, sources.size());
 
-        // Main source
         ExternalConfigSource main = (ExternalConfigSource) sources.get(0);
         assertEquals(Path.of("/etc/my-app/application.properties"), main.getConfigFile());
         assertEquals(275, main.getOrdinal());
